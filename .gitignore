@@ -1,0 +1,113 @@
+# ==========================================
+# ENVIRONNEMENT VIRTUEL
+# ==========================================
+.venv/
+venv/
+env/
+.env/
+
+# ==========================================
+# DONNÉES (NE PAS COMMITER)
+# ==========================================
+data/*.csv
+data/*.parquet
+*.csv
+*.parquet
+
+# Exception: on peut commiter des petits CSVs de test
+!tests/fixtures/*.csv
+
+# ==========================================
+# MODÈLES (NE PAS COMMITER - trop lourds)
+# ==========================================
+models/*.pkl
+models/*.joblib
+*.pkl
+*.joblib
+*.h5
+*.pt
+*.pth
+
+# Exception: on peut commiter un modèle léger de référence
+!models/reference_model.pkl
+
+# ==========================================
+# MLFLOW
+# ==========================================
+mlruns/
+mlflow.db
+mlflow.db-shm
+mlflow.db-wal
+
+# ==========================================
+# PYTHON
+# ==========================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+*.egg
+
+# ==========================================
+# JUPYTER
+# ==========================================
+.ipynb_checkpoints
+*/.ipynb_checkpoints/*
+*.ipynb_checkpoints
+
+# BACKUP du notebook (créé manuellement)
+*_BACKUP.ipynb
+
+# ==========================================
+# UV / PyPI
+# ==========================================
+.uv/
+
+# ==========================================
+# IDEs
+# ==========================================
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ==========================================
+# SYSTÈME
+# ==========================================
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ==========================================
+# ENVIRONNEMENT & SECRETS
+# ==========================================
+.env
+.env.local
+.env.*.local
+*.env
+
+# ==========================================
+# LOGS
+# ==========================================
+*.log
+logs/
+
+# ==========================================
+# CACHE
+# ==========================================
+.cache/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# ==========================================
+# FICHIERS TEMPORAIRES
+# ==========================================
+*.tmp
+*.temp
+*.bak
