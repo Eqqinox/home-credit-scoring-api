@@ -1,0 +1,29 @@
+[project]
+name = "projet8"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "evidently>=0.7.17",
+    "fastapi>=0.122.0",
+    "gradio>=6.0.1",
+    "ipykernel>=7.1.0",
+    "jupyter>=1.1.1",
+    "lightgbm>=4.6.0",
+    "matplotlib>=3.10.7",
+    "mlflow>=3.6.0",
+    "numpy>=2.3.5",
+    "optuna>=4.6.0",
+    "pandas>=2.3.3",
+    "pydantic>=2.12.4",
+    "pytest>=9.0.1",
+    "pytest-cov>=7.0.0",
+    "python-dotenv>=1.2.1",
+    "scikit-learn>=1.7.2",
+    "seaborn>=0.13.2",
+    "shap>=0.49.1",
+    "streamlit>=1.51.0",
+    "uvicorn>=0.38.0",
+    "xgboost>=3.1.2",
+]
