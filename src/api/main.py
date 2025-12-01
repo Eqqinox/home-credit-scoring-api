@@ -1,0 +1,289 @@
+"""
+Point d'entrée de l'API FastAPI.
+
+Définit tous les endpoints de l'API de scoring crédit.
+"""
+
+import logging
+from fastapi import FastAPI, HTTPException, status
+from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
+from contextlib import asynccontextmanager
+from datetime import datetime
+from typing import Dict, Any
+
+from .config import settings
+from .schemas import (
+    ClientData,
+    PredictionResponse,
+    BatchPredictionRequest,
+    BatchPredictionResponse,
+    HealthResponse,
+    ModelInfoResponse,
+    ErrorResponse
+)
+from .predictor import CreditScoringPredictor
+
+# Configuration du logging
+logging.basicConfig(
+    level=getattr(logging, settings.log_level),
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+# Instance globale du predictor (chargée au démarrage)
+predictor: CreditScoringPredictor = None
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    Gère le cycle de vie de l'application.
+
+    Charge le modèle au démarrage et nettoie à l'arrêt.
+    """
+    # Démarrage
+    global predictor
+    logger.info("Démarrage de l'application")
+    logger.info("Chargement du modèle et des encoders...")
+
+    try:
+        predictor = CreditScoringPredictor()
+        logger.info("Modèle chargé avec succès")
+    except Exception as e:
+        logger.error(f"Erreur fatale lors du chargement du modèle: {e}")
+        raise
+
+    yield
+
+    # Arrêt
+    logger.info("Arrêt de l'application")
+
+
+# Création de l'application FastAPI
+app = FastAPI(
+    title=settings.api_title,
+    version=settings.api_version,
+    description=settings.api_description,
+    lifespan=lifespan
+)
+
+# Configuration CORS (pour permettre les requêtes cross-origin)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # À restreindre en production
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+# ===== ENDPOINTS =====
+
+@app.get(
+    "/",
+    response_model=HealthResponse,
+    tags=["Health"],
+    summary="Health check",
+    description="Vérifie que l'API fonctionne et que le modèle est chargé"
+)
+async def health_check() -> HealthResponse:
+    """
+    Endpoint de health check.
+
+    Returns:
+        Statut de l'API et du modèle
+    """
+    return HealthResponse(
+        status="ok",
+        model_loaded=predictor.is_loaded() if predictor else False,
+        model_version=settings.api_version,
+        timestamp=datetime.now()
+    )
+
+
+@app.get(
+    "/model-info",
+    response_model=ModelInfoResponse,
+    tags=["Model"],
+    summary="Informations sur le modèle",
+    description="Retourne les informations et métriques du modèle"
+)
+async def get_model_info() -> ModelInfoResponse:
+    """
+    Retourne les informations sur le modèle.
+
+    Returns:
+        Informations complètes sur le modèle (type, version, métriques, etc.)
+
+    Raises:
+        HTTPException: Si le modèle n'est pas chargé
+    """
+    if not predictor or not predictor.is_loaded():
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Le modèle n'est pas chargé"
+        )
+
+    model_info = predictor.get_model_info()
+    return ModelInfoResponse(**model_info)
+
+
+@app.post(
+    "/predict",
+    response_model=PredictionResponse,
+    tags=["Predictions"],
+    summary="Prédiction pour un client",
+    description="Fait une prédiction de risque de défaut pour un client",
+    responses={
+        200: {"description": "Prédiction réussie"},
+        400: {"description": "Données invalides", "model": ErrorResponse},
+        422: {"description": "Validation échouée", "model": ErrorResponse},
+        500: {"description": "Erreur serveur", "model": ErrorResponse}
+    }
+)
+async def predict(client_data: ClientData) -> PredictionResponse:
+    """
+    Fait une prédiction pour un client.
+
+    Args:
+        client_data: Données du client (645 features)
+
+    Returns:
+        Prédiction avec probabilité, décision et niveau de risque
+
+    Raises:
+        HTTPException: Si la prédiction échoue
+    """
+    if not predictor or not predictor.is_loaded():
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Le modèle n'est pas chargé"
+        )
+
+    try:
+        # Convertir le modèle Pydantic en dictionnaire
+        data_dict = client_data.model_dump()
+
+        # Faire la prédiction
+        prediction = predictor.predict(data_dict)
+
+        return PredictionResponse(**prediction)
+
+    except ValueError as e:
+        logger.error(f"Erreur de validation: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+    except Exception as e:
+        logger.error(f"Erreur lors de la prédiction: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Erreur lors de la prédiction: {str(e)}"
+        )
+
+
+@app.post(
+    "/predict-batch",
+    response_model=BatchPredictionResponse,
+    tags=["Predictions"],
+    summary="Prédictions en batch",
+    description=f"Fait des prédictions pour plusieurs clients (max {settings.max_batch_size})",
+    responses={
+        200: {"description": "Prédictions réussies"},
+        400: {"description": "Données invalides", "model": ErrorResponse},
+        422: {"description": "Validation échouée", "model": ErrorResponse},
+        500: {"description": "Erreur serveur", "model": ErrorResponse}
+    }
+)
+async def predict_batch(request: BatchPredictionRequest) -> BatchPredictionResponse:
+    """
+    Fait des prédictions pour plusieurs clients.
+
+    Args:
+        request: Liste de clients (max 100)
+
+    Returns:
+        Liste de prédictions
+
+    Raises:
+        HTTPException: Si les prédictions échouent
+    """
+    if not predictor or not predictor.is_loaded():
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Le modèle n'est pas chargé"
+        )
+
+    try:
+        # Convertir les modèles Pydantic en dictionnaires
+        clients_data = [client.model_dump() for client in request.clients]
+
+        # Faire les prédictions
+        predictions = predictor.predict_batch(clients_data)
+
+        # Convertir en PredictionResponse
+        prediction_responses = [PredictionResponse(**pred) for pred in predictions]
+
+        return BatchPredictionResponse(
+            predictions=prediction_responses,
+            total_clients=len(prediction_responses),
+            timestamp=datetime.now()
+        )
+
+    except ValueError as e:
+        logger.error(f"Erreur de validation: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+    except Exception as e:
+        logger.error(f"Erreur lors des prédictions batch: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Erreur lors des prédictions: {str(e)}"
+        )
+
+
+# ===== GESTION DES ERREURS =====
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request, exc: HTTPException):
+    """Handler personnalisé pour les erreurs HTTP."""
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "error": exc.detail,
+            "detail": None,
+            "timestamp": datetime.now().isoformat()
+        }
+    )
+
+
+@app.exception_handler(Exception)
+async def general_exception_handler(request, exc: Exception):
+    """Handler pour toutes les autres erreurs."""
+    logger.error(f"Erreur non gérée: {exc}")
+    return JSONResponse(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        content={
+            "error": "Erreur interne du serveur",
+            "detail": str(exc),
+            "timestamp": datetime.now().isoformat()
+        }
+    )
+
+
+# ===== POINT D'ENTRÉE =====
+
+if __name__ == "__main__":
+    import uvicorn
+
+    uvicorn.run(
+        "main:app",
+        host=settings.host,
+        port=settings.port,
+        reload=settings.reload,
+        log_level=settings.log_level.lower()
+    )

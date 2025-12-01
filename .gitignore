@@ -90,6 +90,7 @@ desktop.ini
 .env.local
 .env.*.local
 *.env
+CLAUDE.md
 
 # ==========================================
 # LOGS
