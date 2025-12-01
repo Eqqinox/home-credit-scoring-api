@@ -1,0 +1,38 @@
+{
+  "auc_roc": 0.7827937769629901,
+  "accuracy": 0.7510202754337186,
+  "precision": 0.19543206969625618,
+  "recall": 0.6686807653575025,
+  "f1_score": 0.3024643556689291,
+  "threshold_default": 0.5,
+  "confusion_matrix": {
+    "tn": 42870,
+    "fp": 13668,
+    "fn": 1645,
+    "tp": 3320
+  },
+  "business_cost": {
+    "cost_fn": 16450,
+    "cost_fp": 13668,
+    "total_cost": 30118
+  },
+  "optimal_threshold": {
+    "threshold": 0.4955056179775281,
+    "recall": 0.67472306143001,
+    "precision": 0.19393307861525994,
+    "total_cost": 30074,
+    "savings": 44,
+    "confusion_matrix": {
+      "tn": 42614,
+      "fp": 13924,
+      "fn": 1615,
+      "tp": 3350
+    }
+  },
+  "training_info": {
+    "train_samples": 246008,
+    "val_samples": 61503,
+    "n_features": 912,
+    "train_time_seconds": 19.17085289955139
+  }
+}
