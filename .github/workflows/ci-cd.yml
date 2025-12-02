@@ -1,0 +1,221 @@
+name: CI/CD Pipeline
+
+# Déclenchement du pipeline
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+# Variables d'environnement globales
+env:
+  DOCKER_IMAGE_NAME: credit-scoring-api
+  PYTHON_VERSION: "3.11"
+
+jobs:
+  # ============================================================================
+  # JOB 1 : TESTS AUTOMATISÉS
+  # ============================================================================
+  test:
+    name: Tests unitaires et intégration
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest pytest-cov pytest-asyncio
+
+      - name: Run tests
+        run: |
+          pytest tests/ -v --cov=src --cov-report=term-missing --cov-report=xml
+
+      - name: Check coverage
+        run: |
+          coverage report --fail-under=80
+
+      - name: Upload coverage reports
+        uses: codecov/codecov-action@v4
+        if: always()
+        with:
+          file: ./coverage.xml
+          fail_ci_if_error: false
+
+  # ============================================================================
+  # JOB 2 : BUILD DOCKER IMAGE
+  # ============================================================================
+  build:
+    name: Build Docker Image
+    runs-on: ubuntu-latest
+    needs: test
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          push: false
+          tags: ${{ env.DOCKER_IMAGE_NAME }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Test Docker image
+        run: |
+          docker run -d --name test-api -p 8000:8000 ${{ env.DOCKER_IMAGE_NAME }}:latest
+          sleep 10
+          curl -f http://localhost:8000/ || exit 1
+          docker stop test-api
+          docker rm test-api
+
+  # ============================================================================
+  # JOB 3 : PUSH TO GITHUB CONTAINER REGISTRY
+  # ============================================================================
+  push:
+    name: Push to GitHub Container Registry
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=ref,event=branch
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ============================================================================
+  # JOB 4 : DEPLOY TO HUGGING FACE SPACES
+  # ============================================================================
+  deploy:
+    name: Deploy to Hugging Face Spaces
+    runs-on: ubuntu-latest
+    needs: push
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Git
+        run: |
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git config --global user.name "github-actions[bot]"
+
+      - name: Deploy to Hugging Face
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_SPACE: ${{ secrets.HF_SPACE }}
+        run: |
+          # Clone le Space Hugging Face
+          git clone https://huggingface.co/spaces/$HF_SPACE huggingface-space
+
+          # Copier les fichiers nécessaires
+          cp Dockerfile.huggingface huggingface-space/Dockerfile
+          cp -r src huggingface-space/
+          cp -r models huggingface-space/
+          cp requirements.txt huggingface-space/
+          cp pyproject.toml huggingface-space/
+
+          # Créer README.md pour Hugging Face avec metadata
+          cat > huggingface-space/README.md << 'EOF'
+          ---
+          title: Credit Scoring API
+          emoji: 💳
+          colorFrom: blue
+          colorTo: green
+          sdk: docker
+          pinned: false
+          license: mit
+          ---
+
+          # 💳 Credit Scoring API
+
+          API de scoring crédit avec FastAPI et LightGBM pour prédire le risque de défaut de paiement.
+
+          ## 🚀 Endpoints
+
+          - `GET /` - Health check
+          - `GET /model-info` - Informations sur le modèle
+          - `POST /predict` - Prédiction pour un client
+          - `POST /predict-batch` - Prédictions par lot
+
+          ## 📊 Modèle
+
+          - **Type** : LightGBM optimisé
+          - **AUC-ROC** : 0.7828
+          - **Seuil optimal** : 0.4955
+          - **Features** : 912
+
+          ## 🔗 Liens
+
+          - [GitHub Repository](https://github.com/${{ github.repository }})
+          - [Documentation Swagger](/docs)
+          EOF
+
+          # Push vers Hugging Face
+          cd huggingface-space
+          git add .
+          git commit -m "🚀 Deploy from GitHub Actions - ${{ github.sha }}" || echo "No changes to commit"
+          git push https://user:$HF_TOKEN@huggingface.co/spaces/$HF_SPACE main
+
+      - name: Deployment success
+        if: success()
+        run: |
+          echo "✅ Deployment réussi sur Hugging Face Spaces !"
+          echo "🔗 URL: https://huggingface.co/spaces/${{ secrets.HF_SPACE }}"

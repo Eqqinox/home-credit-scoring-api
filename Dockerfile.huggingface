@@ -1,0 +1,51 @@
+# ==========================================
+# Dockerfile pour Hugging Face Spaces
+# ==========================================
+# Différence avec Dockerfile standard : port 7860 au lieu de 8000
+
+# Image de base Python officielle
+FROM python:3.11-slim
+
+# Métadonnées
+LABEL maintainer="Mounir Meknaci"
+LABEL description="API de scoring crédit - Home Credit Default Risk - Hugging Face Spaces"
+LABEL version="1.0"
+
+# Variables d'environnement
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+# Répertoire de travail
+WORKDIR /app
+
+# Installer les dépendances système si nécessaire
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copier les fichiers de dépendances
+COPY requirements.txt .
+
+# Installer les dépendances Python
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copier le code source
+COPY src/ ./src/
+COPY models/ ./models/
+COPY pyproject.toml .
+
+# Créer un utilisateur non-root pour la sécurité
+RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
+USER appuser
+
+# Exposer le port 7860 (requis par Hugging Face Spaces)
+EXPOSE 7860
+
+# Healthcheck (adapté au port 7860)
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD python -c "import requests; requests.get('http://localhost:7860/')" || exit 1
+
+# Point d'entrée (port 7860 pour Hugging Face)
+CMD ["uvicorn", "src.api.main:app", "--host", "0.0.0.0", "--port", "7860"]
