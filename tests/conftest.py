@@ -2,6 +2,7 @@
 Fixtures partagées pour les tests.
 Contient les fixtures communes utilisées par plusieurs modules de test.
 """
+
 import pytest
 import json
 from pathlib import Path
@@ -94,6 +95,7 @@ def sample_data_from_csv():
         Dictionnaire avec des données réelles
     """
     import pandas as pd
+    
     data_path = Path("data/app_train_models.csv")
     
     if data_path.exists():
