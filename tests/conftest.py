@@ -2,7 +2,6 @@
 Fixtures partagées pour les tests.
 Contient les fixtures communes utilisées par plusieurs modules de test.
 """
-
 import pytest
 import json
 from pathlib import Path
@@ -19,14 +18,17 @@ def api_client():
     Returns:
         TestClient FastAPI pour tester les endpoints
     """
-    # Force le chargement du modèle avant de créer le client de test
+    # Créer d'abord le TestClient (cela déclenche le lifespan et charge le modèle)
+    client = TestClient(app)
+    
+    # Ensuite importer et vérifier le predictor
     from src.api.main import predictor
     
     # Vérifier que le modèle est chargé
-    if not predictor.is_loaded:
-        pytest.skip("Le modèle n'a pas pu être chargé")
+    if predictor is None or not predictor.is_loaded():
+        pytest.skip("Le modèle n'a pas pu être chargé pour les tests")
     
-    return TestClient(app)
+    return client
 
 
 @pytest.fixture
@@ -92,7 +94,6 @@ def sample_data_from_csv():
         Dictionnaire avec des données réelles
     """
     import pandas as pd
-    
     data_path = Path("data/app_train_models.csv")
     
     if data_path.exists():
@@ -124,7 +125,6 @@ def expected_features():
         Liste des noms de features
     """
     import pickle
-    
     feature_path = Path("models/feature_names.pkl")
     
     if feature_path.exists():
