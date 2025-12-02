@@ -1,0 +1,57 @@
+# ============================================================================
+# docker-compose.yml - Orchestration de l'API de Scoring Crédit
+# ============================================================================
+version: '3.8'
+
+services:
+  # Service API FastAPI
+  api:
+    # Nom du service
+    container_name: credit-scoring-api
+    
+    # Build de l'image depuis le Dockerfile local
+    build:
+      context: .
+      dockerfile: Dockerfile
+    
+    # Nom de l'image créée
+    image: credit-scoring-api:latest
+    
+    # Mapping des ports (hôte:container)
+    ports:
+      - "8000:8000"
+    
+    # Variables d'environnement (optionnel)
+    environment:
+      - ENVIRONMENT=production
+      - LOG_LEVEL=info
+    
+    # Monter les artefacts du modèle (en lecture seule)
+    # Utile pour mettre à jour le modèle sans rebuild
+    volumes:
+      - ./models:/app/models:ro
+    
+    # Politique de redémarrage
+    restart: unless-stopped
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    
+    # Logs
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+# ============================================================================
+# Réseaux (optionnel, pour connecter plusieurs services)
+# ============================================================================
+networks:
+  default:
+    name: credit-scoring-network
