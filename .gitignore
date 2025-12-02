@@ -13,13 +13,13 @@ data/*.csv
 data/*.parquet
 *.csv
 *.parquet
-
 # Exception: on peut commiter des petits CSVs de test
 !tests/fixtures/*.csv
 
 # ==========================================
 # MODÈLES (NE PAS COMMITER - trop lourds)
 # ==========================================
+# Ignorer tous les fichiers de modèles par défaut
 models/*.pkl
 models/*.joblib
 *.pkl
@@ -28,8 +28,12 @@ models/*.joblib
 *.pt
 *.pth
 
-# Exception: on peut commiter un modèle léger de référence
-!models/reference_model.pkl
+# EXCEPTIONS : Modèles nécessaires pour CI/CD et production
+!models/model.pkl
+!models/label_encoders.pkl
+!models/onehot_encoder.pkl
+!models/feature_names.pkl
+!models/*.json
 
 # ==========================================
 # MLFLOW
@@ -58,7 +62,6 @@ build/
 .ipynb_checkpoints
 */.ipynb_checkpoints/*
 *.ipynb_checkpoints
-
 # BACKUP du notebook (créé manuellement)
 *_BACKUP.ipynb
 
