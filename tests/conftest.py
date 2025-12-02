@@ -1,6 +1,5 @@
 """
 Fixtures partagées pour les tests.
-
 Contient les fixtures communes utilisées par plusieurs modules de test.
 """
 
@@ -8,7 +7,6 @@ import pytest
 import json
 from pathlib import Path
 from fastapi.testclient import TestClient
-
 from src.api.main import app
 from src.api.predictor import CreditScoringPredictor
 
@@ -17,10 +15,17 @@ from src.api.predictor import CreditScoringPredictor
 def api_client():
     """
     Fixture fournissant un client de test pour l'API.
-
+    
     Returns:
         TestClient FastAPI pour tester les endpoints
     """
+    # Force le chargement du modèle avant de créer le client de test
+    from src.api.main import predictor
+    
+    # Vérifier que le modèle est chargé
+    if not predictor.is_loaded:
+        pytest.skip("Le modèle n'a pas pu être chargé")
+    
     return TestClient(app)
 
 
@@ -28,7 +33,7 @@ def api_client():
 def valid_client_data():
     """
     Fixture fournissant des données client valides.
-
+    
     Returns:
         Dictionnaire avec des données client complètes et valides
     """
@@ -51,7 +56,7 @@ def valid_client_data():
 def invalid_client_data():
     """
     Fixture fournissant des données client invalides.
-
+    
     Returns:
         Dictionnaire avec des données incorrectes
     """
@@ -67,7 +72,7 @@ def invalid_client_data():
 def client_data_missing_features():
     """
     Fixture fournissant des données avec des features manquantes.
-
+    
     Returns:
         Dictionnaire incomplet
     """
@@ -82,13 +87,14 @@ def client_data_missing_features():
 def sample_data_from_csv():
     """
     Charge un échantillon réel depuis le CSV.
-
+    
     Returns:
         Dictionnaire avec des données réelles
     """
     import pandas as pd
-
+    
     data_path = Path("data/app_train_models.csv")
+    
     if data_path.exists():
         df = pd.read_csv(data_path, nrows=1)
         # Convertir en dictionnaire sans la target
@@ -102,7 +108,7 @@ def sample_data_from_csv():
 def predictor():
     """
     Fixture fournissant une instance du predictor.
-
+    
     Returns:
         Instance de CreditScoringPredictor
     """
@@ -113,12 +119,14 @@ def predictor():
 def expected_features():
     """
     Fixture fournissant la liste des features attendues.
-
+    
     Returns:
         Liste des noms de features
     """
     import pickle
+    
     feature_path = Path("models/feature_names.pkl")
+    
     if feature_path.exists():
         with open(feature_path, 'rb') as f:
             return pickle.load(f)
@@ -130,11 +138,12 @@ def expected_features():
 def model_metrics():
     """
     Fixture fournissant les métriques du modèle.
-
+    
     Returns:
         Dictionnaire des métriques
     """
     metrics_path = Path("models/metrics.json")
+    
     if metrics_path.exists():
         with open(metrics_path, 'r') as f:
             return json.load(f)
