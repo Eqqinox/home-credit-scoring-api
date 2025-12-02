@@ -159,6 +159,7 @@ class TestPredictorInternals:
     def test_predict_with_client_id(self):
         """Test que l'ID client est préservé dans la prédiction."""
         from src.api.predictor import CreditScoringPredictor
+        import numpy as np
         
         predictor = CreditScoringPredictor()
         
@@ -166,14 +167,13 @@ class TestPredictorInternals:
         data = {
             "SK_ID_CURR": 999999,
             "AMT_INCOME_TOTAL": 150000,
-            # ... autres features nécessaires
         }
         
         # Mock du preprocessing et de la prédiction
         with patch.object(predictor, 'preprocess') as mock_preprocess:
             mock_preprocess.return_value = MagicMock()
             with patch.object(predictor.model, 'predict_proba') as mock_predict:
-                mock_predict.return_value = [[0.3, 0.7]]
+                mock_predict.return_value = np.array([[0.3, 0.7]])
                 
                 result = predictor.predict(data)
                 
@@ -182,6 +182,7 @@ class TestPredictorInternals:
     def test_predict_without_client_id(self):
         """Test prédiction sans ID client."""
         from src.api.predictor import CreditScoringPredictor
+        import numpy as np
         
         predictor = CreditScoringPredictor()
         
@@ -193,7 +194,7 @@ class TestPredictorInternals:
         with patch.object(predictor, 'preprocess') as mock_preprocess:
             mock_preprocess.return_value = MagicMock()
             with patch.object(predictor.model, 'predict_proba') as mock_predict:
-                mock_predict.return_value = [[0.3, 0.7]]
+                mock_predict.return_value = np.array([[0.3, 0.7]])
                 
                 result = predictor.predict(data)
                 

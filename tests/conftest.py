@@ -25,8 +25,8 @@ def api_client():
     # Ensuite importer et vérifier le predictor
     from src.api.main import predictor
     
-    # Vérifier que le modèle est chargé
-    if predictor is None or not predictor.is_loaded():
+    # Vérifier que le modèle est chargé (sans parenthèses !)
+    if predictor is None or not predictor.is_loaded:
         pytest.skip("Le modèle n'a pas pu être chargé pour les tests")
     
     return client
@@ -50,8 +50,6 @@ def valid_client_data():
         "CODE_GENDER": "M",
         "FLAG_OWN_CAR": "N",
         "FLAG_OWN_REALTY": "Y",
-        # Ajouter toutes les autres features nécessaires...
-        # Pour les tests, on peut charger un exemple réel
     }
 
 
@@ -65,8 +63,8 @@ def invalid_client_data():
     """
     return {
         "SK_ID_CURR": 100002,
-        "AMT_INCOME_TOTAL": -1000.0,  # Montant négatif invalide
-        "AMT_CREDIT": 1e15,  # Montant trop élevé
+        "AMT_INCOME_TOTAL": -1000.0,
+        "AMT_CREDIT": 1e15,
         "NAME_CONTRACT_TYPE": "Invalid Type",
     }
 
@@ -82,7 +80,6 @@ def client_data_missing_features():
     return {
         "SK_ID_CURR": 100003,
         "AMT_INCOME_TOTAL": 150000.0,
-        # Features manquantes...
     }
 
 
@@ -100,7 +97,6 @@ def sample_data_from_csv():
     
     if data_path.exists():
         df = pd.read_csv(data_path, nrows=1)
-        # Convertir en dictionnaire sans la target
         data = df.drop(columns=['TARGET'], errors='ignore').iloc[0].to_dict()
         return data
     else:
