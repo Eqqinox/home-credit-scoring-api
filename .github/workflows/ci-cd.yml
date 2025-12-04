@@ -9,6 +9,11 @@ on:
     branches:
       - main
 
+# Permissions nécessaires pour GitHub Container Registry
+permissions:
+  contents: read
+  packages: write
+
 # Variables d'environnement globales
 env:
   DOCKER_IMAGE_NAME: credit-scoring-api
@@ -102,6 +107,9 @@ jobs:
     runs-on: ubuntu-latest
     needs: build
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+      packages: write
 
     steps:
       - name: Checkout code
@@ -144,7 +152,7 @@ jobs:
   deploy:
     name: Deploy to Hugging Face Spaces
     runs-on: ubuntu-latest
-    needs: push
+    needs: build
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
 
     steps:
