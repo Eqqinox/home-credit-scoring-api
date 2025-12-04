@@ -49,9 +49,11 @@ class TestPredictorLoading:
         assert 0.0 < predictor.threshold < 1.0
 
     def test_threshold_value_correct(self, predictor):
-        """Teste que le seuil optimal est bien 0.4955."""
-        # Le seuil optimal trouvé lors de l'entraînement
-        assert 0.495 <= predictor.threshold <= 0.496
+        """Teste que le seuil optimal est dans une plage raisonnable."""
+        # Le seuil optimal varie légèrement selon l'entraînement
+        # Actuellement : 0.5225 (modèle sans SK_ID_CURR)
+        # Anciennement : 0.4955 (modèle avec SK_ID_CURR)
+        assert 0.49 <= predictor.threshold <= 0.53
 
     def test_metrics_loaded(self, predictor):
         """Teste que les métriques sont chargées."""

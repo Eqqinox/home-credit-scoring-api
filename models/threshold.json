@@ -1,5 +1,5 @@
 {
-  "optimal_threshold": 0.4955056179775281,
+  "optimal_threshold": 0.5224719101123596,
   "default_threshold": 0.5,
   "description": "Seuil de d\u00e9cision optimis\u00e9 pour minimiser le co\u00fbt m\u00e9tier (10\u00d7FN + 1\u00d7FP)"
 }

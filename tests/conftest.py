@@ -25,8 +25,8 @@ def api_client():
     # Ensuite importer et vérifier le predictor
     from src.api.main import predictor
     
-    # Vérifier que le modèle est chargé (sans parenthèses !)
-    if predictor is None or not predictor.is_loaded:
+    # Vérifier que le modèle est chargé
+    if predictor is None or not predictor.is_loaded():
         pytest.skip("Le modèle n'a pas pu être chargé pour les tests")
     
     return client
@@ -87,14 +87,14 @@ def client_data_missing_features():
 def sample_data_from_csv():
     """
     Charge un échantillon réel depuis le CSV.
-    
+
     Returns:
         Dictionnaire avec des données réelles
     """
     import pandas as pd
-    
+
     data_path = Path("data/app_train_models.csv")
-    
+
     if data_path.exists():
         df = pd.read_csv(data_path, nrows=1)
         data = df.drop(columns=['TARGET'], errors='ignore').iloc[0].to_dict()
@@ -107,7 +107,7 @@ def sample_data_from_csv():
 def predictor():
     """
     Fixture fournissant une instance du predictor.
-    
+
     Returns:
         Instance de CreditScoringPredictor
     """
