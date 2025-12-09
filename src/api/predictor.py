@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Dict, List, Tuple, Any
 import logging
 from datetime import datetime
+import time
 
 from .config import settings
 from .schemas import RiskLevel, Decision
@@ -175,20 +176,31 @@ class CreditScoringPredictor:
             ValueError: Si les données sont invalides
             Exception: Si la prédiction échoue
         """
+        # Démarrer le chronomètre total
+        start_total = time.time()
+
         try:
             # Extraire l'ID client s'il existe
             client_id = data.get('SK_ID_CURR', None)
 
-            # Prétraiter les données
+            # Prétraiter les données avec timing
+            start_preprocess = time.time()
             X_encoded = self.preprocess(data)
+            preprocessing_time_ms = (time.time() - start_preprocess) * 1000
 
-            # Faire la prédiction
+            # Faire la prédiction avec timing
+            start_inference = time.time()
             proba = self.model.predict_proba(X_encoded)[0, 1]
+            inference_time_ms = (time.time() - start_inference) * 1000
+
             prediction = int(proba >= self.threshold)
 
             # Déterminer la décision et le niveau de risque
             decision = Decision.REFUSE if prediction == 1 else Decision.APPROVE
             risk_level = self._get_risk_level(proba)
+
+            # Calculer le temps total
+            total_time_ms = (time.time() - start_total) * 1000
 
             # Construire la réponse
             response = {
@@ -199,7 +211,13 @@ class CreditScoringPredictor:
                 "risk_level": risk_level.value,
                 "threshold_used": float(self.threshold),
                 "model_version": self.model_version,
-                "timestamp": datetime.now()
+                "timestamp": datetime.now(),
+                # Timings pour logging (sera retiré par l'endpoint)
+                "_timing": {
+                    "preprocessing_ms": preprocessing_time_ms,
+                    "inference_ms": inference_time_ms,
+                    "total_ms": total_time_ms,
+                }
             }
 
             logger.info(f"Prédiction réussie pour client {client_id}: proba={proba:.4f}, decision={decision.value}")

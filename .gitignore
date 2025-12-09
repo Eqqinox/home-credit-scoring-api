@@ -114,4 +114,6 @@ logs/
 # ==========================================
 *.tmp
 *.temp
-*.bak
+*.bak.coverage
+coverage.xml
+htmlcov/

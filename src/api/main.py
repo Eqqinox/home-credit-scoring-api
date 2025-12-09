@@ -23,13 +23,23 @@ from .schemas import (
     ErrorResponse
 )
 from .predictor import CreditScoringPredictor
+from src.monitoring.logger import configure_structlog, ProductionLogger
 
-# Configuration du logging
+# Configuration du logging structuré
+configure_structlog(
+    log_level=settings.log_level,
+    environment=settings.environment
+)
+
+# Configuration du logging standard (pour compatibilité)
 logging.basicConfig(
     level=getattr(logging, settings.log_level),
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
+
+# Instance globale du logger de production
+production_logger = ProductionLogger()
 
 # Instance globale du predictor (chargée au démarrage)
 predictor: CreditScoringPredictor = None
@@ -166,18 +176,49 @@ async def predict(client_data: ClientData) -> PredictionResponse:
         data_dict = client_data.model_dump()
 
         # Faire la prédiction
-        prediction = predictor.predict(data_dict)
+        result = predictor.predict(data_dict)
 
-        return PredictionResponse(**prediction)
+        # Extraire les timings (ajoutés par predictor)
+        timing = result.pop('_timing', {})
+
+        # Logger la prédiction avec structlog
+        production_logger.log_prediction(
+            client_id=result.get('client_id'),
+            probability=result['probability_default'],
+            prediction=result['prediction'],
+            decision=result['decision'],
+            risk_level=result['risk_level'],
+            preprocessing_time_ms=timing.get('preprocessing_ms', 0),
+            inference_time_ms=timing.get('inference_ms', 0),
+            total_time_ms=timing.get('total_ms', 0),
+            threshold=result['threshold_used'],
+            model_version=result['model_version'],
+            endpoint="/predict",
+            http_status=200,
+        )
+
+        return PredictionResponse(**result)
 
     except ValueError as e:
         logger.error(f"Erreur de validation: {e}")
+        production_logger.log_error(
+            error_type="ValidationError",
+            error_message=str(e),
+            endpoint="/predict",
+            client_id=client_data.SK_ID_CURR,
+        )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
         )
     except Exception as e:
         logger.error(f"Erreur lors de la prédiction: {e}")
+        production_logger.log_error(
+            error_type="InternalError",
+            error_message=str(e),
+            endpoint="/predict",
+            client_id=client_data.SK_ID_CURR,
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Erreur lors de la prédiction: {str(e)}"
@@ -216,6 +257,10 @@ async def predict_batch(request: BatchPredictionRequest) -> BatchPredictionRespo
             detail="Le modèle n'est pas chargé"
         )
 
+    # Démarrer le chronomètre pour le batch
+    import time
+    start_batch_time = time.time()
+
     try:
         # Convertir les modèles Pydantic en dictionnaires
         clients_data = [client.model_dump() for client in request.clients]
@@ -223,8 +268,23 @@ async def predict_batch(request: BatchPredictionRequest) -> BatchPredictionRespo
         # Faire les prédictions
         predictions = predictor.predict_batch(clients_data)
 
+        # Retirer les _timing de chaque prédiction (pas nécessaire dans la réponse batch)
+        for pred in predictions:
+            pred.pop('_timing', None)
+
         # Convertir en PredictionResponse
         prediction_responses = [PredictionResponse(**pred) for pred in predictions]
+
+        # Calculer le temps total
+        total_time_ms = (time.time() - start_batch_time) * 1000
+
+        # Logger le batch
+        production_logger.log_batch(
+            n_clients=len(request.clients),
+            total_time_ms=total_time_ms,
+            n_success=len(prediction_responses),
+            n_errors=0,
+        )
 
         return BatchPredictionResponse(
             predictions=prediction_responses,
@@ -234,12 +294,22 @@ async def predict_batch(request: BatchPredictionRequest) -> BatchPredictionRespo
 
     except ValueError as e:
         logger.error(f"Erreur de validation: {e}")
+        production_logger.log_error(
+            error_type="ValidationError",
+            error_message=str(e),
+            endpoint="/predict-batch",
+        )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
         )
     except Exception as e:
         logger.error(f"Erreur lors des prédictions batch: {e}")
+        production_logger.log_error(
+            error_type="InternalError",
+            error_message=str(e),
+            endpoint="/predict-batch",
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Erreur lors des prédictions: {str(e)}"

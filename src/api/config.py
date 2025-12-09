@@ -33,6 +33,7 @@ class Settings(BaseSettings):
     # Logging
     log_level: str = "INFO"
     log_format: str = "json"  # json ou text
+    environment: str = "production"  # "local" ou "production"
 
     # Limites
     max_batch_size: int = 100
