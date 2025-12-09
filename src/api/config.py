@@ -39,6 +39,21 @@ class Settings(BaseSettings):
     max_batch_size: int = 100
     max_request_timeout: int = 30  # secondes
 
+    # ===== CONFIGURATION POSTGRESQL =====
+    db_host: str = "localhost"
+    db_port: int = 5432
+    db_name: str = "credit_scoring_prod"
+    db_user: str = "moon"
+    db_password: str = "moon"
+    db_pool_size: int = 5
+    db_max_overflow: int = 10
+    db_store_predictions: bool = True  # Active/désactive le stockage PostgreSQL
+
+    @property
+    def database_url(self) -> str:
+        """Construit l'URL de connexion PostgreSQL."""
+        return f"postgresql://{self.db_user}:{self.db_password}@{self.db_host}:{self.db_port}/{self.db_name}"
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"

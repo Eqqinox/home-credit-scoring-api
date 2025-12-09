@@ -5,6 +5,7 @@ Définit tous les endpoints de l'API de scoring crédit.
 """
 
 import logging
+import uuid
 from fastapi import FastAPI, HTTPException, status
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -24,6 +25,7 @@ from .schemas import (
 )
 from .predictor import CreditScoringPredictor
 from src.monitoring.logger import configure_structlog, ProductionLogger
+from src.monitoring.storage import PredictionStorage
 
 # Configuration du logging structuré
 configure_structlog(
@@ -43,6 +45,7 @@ production_logger = ProductionLogger()
 
 # Instance globale du predictor (chargée au démarrage)
 predictor: CreditScoringPredictor = None
+storage: PredictionStorage = None
 
 
 @asynccontextmanager
@@ -53,10 +56,11 @@ async def lifespan(app: FastAPI):
     Charge le modèle au démarrage et nettoie à l'arrêt.
     """
     # Démarrage
-    global predictor
+    global predictor, storage
     logger.info("Démarrage de l'application")
-    logger.info("Chargement du modèle et des encoders...")
 
+    # 1. Charger le modèle
+    logger.info("Chargement du modèle et des encoders...")
     try:
         predictor = CreditScoringPredictor()
         logger.info("Modèle chargé avec succès")
@@ -64,10 +68,30 @@ async def lifespan(app: FastAPI):
         logger.error(f"Erreur fatale lors du chargement du modèle: {e}")
         raise
 
+    # 2. Initialiser PredictionStorage
+    if settings.db_store_predictions:
+        logger.info("Initialisation de PredictionStorage...")
+        try:
+            storage = PredictionStorage(
+                database_url=settings.database_url,
+                pool_size=settings.db_pool_size,
+                max_overflow=settings.db_max_overflow
+            )
+            logger.info("PredictionStorage initialisé avec succès")
+        except Exception as e:
+            logger.error(f"Erreur lors de l'initialisation du storage: {e}")
+            logger.warning("L'API continuera sans stockage PostgreSQL")
+            storage = None
+
     yield
 
     # Arrêt
     logger.info("Arrêt de l'application")
+    if storage:
+        try:
+            storage.close()
+        except Exception as e:
+            logger.error(f"Erreur lors de la fermeture du storage: {e}")
 
 
 # Création de l'application FastAPI
@@ -171,6 +195,8 @@ async def predict(client_data: ClientData) -> PredictionResponse:
             detail="Le modèle n'est pas chargé"
         )
 
+    request_id = str(uuid.uuid4())
+
     try:
         # Convertir le modèle Pydantic en dictionnaire
         data_dict = client_data.model_dump()
@@ -196,6 +222,22 @@ async def predict(client_data: ClientData) -> PredictionResponse:
             endpoint="/predict",
             http_status=200,
         )
+
+        # Stocker en PostgreSQL
+        if storage:
+            try:
+                storage.save_prediction(
+                    request_id=request_id,
+                    endpoint="/predict",
+                    prediction_data=result,
+                    timing_data=timing,
+                    input_features=data_dict,
+                    api_version=settings.api_version,
+                    http_status=200
+                )
+            except Exception as db_error:
+                logger.error(f"Erreur lors du stockage PostgreSQL: {db_error}")
+                # L'API continue même si le stockage échoue
 
         return PredictionResponse(**result)
 
@@ -268,7 +310,27 @@ async def predict_batch(request: BatchPredictionRequest) -> BatchPredictionRespo
         # Faire les prédictions
         predictions = predictor.predict_batch(clients_data)
 
-        # Retirer les _timing de chaque prédiction (pas nécessaire dans la réponse batch)
+        # Stocker chaque prédiction en PostgreSQL
+        if storage:
+            for i, pred in enumerate(predictions):
+                try:
+                    request_id = str(uuid.uuid4())
+                    timing = pred.get('_timing', {})
+
+                    storage.save_prediction(
+                        request_id=request_id,
+                        endpoint="/predict-batch",
+                        prediction_data=pred,
+                        timing_data=timing,
+                        input_features=clients_data[i],
+                        api_version=settings.api_version,
+                        http_status=200
+                    )
+                except Exception as db_error:
+                    logger.error(f"Erreur lors du stockage batch {i}: {db_error}")
+                    # Continue même en cas d'erreur
+
+        # Retirer les _timing de chaque prédiction
         for pred in predictions:
             pred.pop('_timing', None)
 

@@ -117,3 +117,5 @@ logs/
 *.bak.coverage
 coverage.xml
 htmlcov/
+.coverage
+htmlcov/
