@@ -425,3 +425,164 @@ class PredictionStorage:
             )
 
         return feature_values
+
+    # ===== MÉTHODES POUR DATA DRIFT =====
+
+    def get_production_features(
+        self,
+        days: int = 7,
+        limit: int = 1000
+    ) -> 'pd.DataFrame':
+        """
+        Récupère les features de production pour analyse de drift.
+
+        Effectue une jointure entre predictions et feature_values pour
+        reconstruire un DataFrame avec les top 20 features.
+
+        Args:
+            days: Nombre de jours de données à récupérer (défaut: 7)
+            limit: Nombre max de prédictions (défaut: 1000)
+
+        Returns:
+            DataFrame avec colonnes : [feature1, feature2, ..., feature20]
+
+        Raises:
+            Exception: Si erreur lors de la requête SQL
+        """
+        import pandas as pd
+        from datetime import datetime, timedelta
+        from sqlalchemy import text
+
+        try:
+            with self.get_session() as session:
+                # Calculer date de début
+                start_date = datetime.now() - timedelta(days=days)
+
+                # Requête SQL pour joindre predictions et feature_values
+                query = text("""
+                    SELECT
+                        p.request_id,
+                        p.timestamp,
+                        fv.feature_name,
+                        fv.feature_value
+                    FROM predictions p
+                    INNER JOIN feature_values fv ON p.request_id = fv.request_id
+                    WHERE p.timestamp >= :start_date
+                        AND p.http_status_code = 200
+                    ORDER BY p.timestamp DESC
+                    LIMIT :limit
+                """)
+
+                result = session.execute(
+                    query,
+                    {'start_date': start_date, 'limit': limit * 20}  # 20 features par prédiction
+                )
+
+                rows = result.fetchall()
+
+                if not rows:
+                    logger.warning(f"Aucune donnée de production trouvée (derniers {days} jours)")
+                    return pd.DataFrame()
+
+                # Convertir en DataFrame
+                df_long = pd.DataFrame(rows, columns=['request_id', 'timestamp', 'feature_name', 'feature_value'])
+
+                # Pivoter pour avoir 1 ligne par request_id et 1 colonne par feature
+                df_wide = df_long.pivot(
+                    index=['request_id', 'timestamp'],
+                    columns='feature_name',
+                    values='feature_value'
+                ).reset_index()
+
+                # Supprimer les colonnes index/timestamp
+                df_features = df_wide.drop(columns=['request_id', 'timestamp'])
+
+                # S'assurer que toutes les top 20 features sont présentes
+                for feature in self.TOP_20_FEATURES:
+                    if feature not in df_features.columns:
+                        df_features[feature] = None
+
+                # Réordonner les colonnes selon TOP_20_FEATURES
+                df_features = df_features[self.TOP_20_FEATURES]
+
+                logger.info(
+                    f"Features de production récupérées: {len(df_features)} lignes, "
+                    f"{len(df_features.columns)} features, période: {days} jours"
+                )
+
+                return df_features
+
+        except Exception as e:
+            logger.error(f"Erreur lors de la récupération des features de production: {e}")
+            raise
+
+    def save_drift_report(
+        self,
+        generated_at: datetime,
+        period_start: datetime,
+        period_end: datetime,
+        reference_dataset: str,
+        current_dataset_size: int,
+        reference_dataset_size: int,
+        drift_detected: bool,
+        drift_score: float,
+        n_features_drifted: int,
+        drifted_features: List[str],
+        report_html_path: str,
+        report_json_path: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None
+    ) -> bool:
+        """
+        Enregistre un rapport de drift dans la table drift_reports.
+
+        Args:
+            generated_at: Date de génération du rapport
+            period_start: Date de début de la période analysée
+            period_end: Date de fin de la période analysée
+            reference_dataset: Nom du dataset de référence
+            current_dataset_size: Taille du dataset de production
+            reference_dataset_size: Taille du dataset de référence
+            drift_detected: Drift détecté (bool)
+            drift_score: Score de drift (0-1)
+            n_features_drifted: Nombre de features en drift
+            drifted_features: Liste des features affectées
+            report_html_path: Chemin du rapport HTML
+            report_json_path: Chemin du rapport JSON (optionnel)
+            metadata: Métadonnées supplémentaires (optionnel)
+
+        Returns:
+            True si succès, False si échec
+        """
+        try:
+            with self.get_session() as session:
+                drift_report = DriftReport(
+                    generated_at=generated_at,
+                    report_period_start=period_start,
+                    report_period_end=period_end,
+                    reference_dataset=reference_dataset,
+                    current_dataset_size=current_dataset_size,
+                    reference_dataset_size=reference_dataset_size,
+                    drift_detected=drift_detected,
+                    drift_score=drift_score,
+                    n_features_drifted=n_features_drifted,
+                    drifted_features=drifted_features if drifted_features else [],
+                    report_html_path=report_html_path,
+                    report_json_path=report_json_path,
+                    metadata_json=metadata
+                )
+
+                session.add(drift_report)
+
+                logger.info(
+                    f"Rapport de drift enregistré - Drift: {'OUI' if drift_detected else 'NON'}, "
+                    f"Score: {drift_score:.2f}, Features: {n_features_drifted}"
+                )
+
+                return True
+
+        except SQLAlchemyError as e:
+            logger.error(f"Erreur SQL lors de l'insertion du rapport de drift: {e}")
+            return False
+        except Exception as e:
+            logger.error(f"Erreur lors de l'insertion du rapport de drift: {e}")
+            return False
