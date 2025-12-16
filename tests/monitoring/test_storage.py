@@ -90,3 +90,42 @@ def test_data_quality_score_calculation(storage):
     score = storage._calculate_data_quality_score(features_complete)
     assert 0 <= score <= 1
     assert score > 0.8  # Score élevé car features critiques présentes
+
+
+def test_get_production_features_empty(storage):
+    """Test get_production_features quand aucune donnée n'est disponible."""
+    from datetime import datetime, timedelta
+
+    # Récupérer features des 1000 derniers jours (normalement vide sur BD test)
+    df = storage.get_production_features(days=1000)
+
+    # Devrait retourner un DataFrame vide
+    import pandas as pd
+    assert isinstance(df, pd.DataFrame)
+    # Peut être vide ou contenir les colonnes TOP_20_FEATURES
+
+
+def test_save_drift_report(storage):
+    """Test l'enregistrement d'un rapport de drift."""
+    from datetime import datetime, timedelta
+
+    period_end = datetime.now()
+    period_start = period_end - timedelta(days=7)
+
+    success = storage.save_drift_report(
+        generated_at=datetime.now(),
+        period_start=period_start,
+        period_end=period_end,
+        reference_dataset="train_reference.parquet",
+        current_dataset_size=100,
+        reference_dataset_size=1000,
+        drift_detected=False,
+        drift_score=0.1,
+        n_features_drifted=2,
+        drifted_features=["feature_1", "feature_2"],
+        report_html_path="/tmp/report.html",
+        report_json_path="/tmp/report.json",
+        metadata={"test": True}
+    )
+
+    assert success is True

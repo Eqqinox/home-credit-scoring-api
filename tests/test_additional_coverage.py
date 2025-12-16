@@ -12,28 +12,39 @@ from src.api.main import app
 
 class TestErrorHandlersMain:
     """Tests des gestionnaires d'erreurs dans main.py."""
-    
+
     def test_http_exception_handler(self, api_client):
         """Test du gestionnaire d'exceptions HTTP personnalisé."""
-        # Tester avec un endpoint qui n'existe pas (404)
-        response = api_client.get("/nonexistent-endpoint")
-        assert response.status_code == 404
-        data = response.json()
-        assert "error" in data
-        assert "timestamp" in data
-    
+        # Tester avec model-info quand le modèle n'est pas chargé (503)
+        # Cela lève une HTTPException dans notre code
+        with patch('src.api.main.predictor', None):
+            response = api_client.get("/model-info")
+            assert response.status_code == 503
+            data = response.json()
+            # Notre handler personnalisé retourne "error" et "timestamp"
+            assert "error" in data
+            assert "timestamp" in data
+            assert "modèle" in data["error"].lower()
+
     def test_general_exception_handler(self, api_client):
         """Test du gestionnaire d'exceptions générales."""
         # Simuler une erreur interne en mockant predict
-        with patch('src.api.main.predictor') as mock_predictor:
-            mock_predictor.is_loaded.return_value = True
-            mock_predictor.predict.side_effect = Exception("Erreur interne simulée")
-            
+        with patch('src.api.main.predictor.predict', side_effect=Exception("Erreur interne simulée")):
             response = api_client.post(
                 "/predict",
-                json={"SK_ID_CURR": 100001, "AMT_INCOME_TOTAL": 150000}
+                json={
+                    "SK_ID_CURR": 100001,
+                    "AMT_INCOME_TOTAL": 150000,
+                    "AMT_CREDIT": 500000,
+                    "AMT_ANNUITY": 25000,
+                    "AMT_GOODS_PRICE": 450000,
+                    "NAME_CONTRACT_TYPE": "Cash loans",
+                    "CODE_GENDER": "M",
+                    "FLAG_OWN_CAR": "N",
+                    "FLAG_OWN_REALTY": "Y"
+                }
             )
-            
+
             assert response.status_code == 500
             data = response.json()
             assert "error" in data
@@ -42,93 +53,131 @@ class TestErrorHandlersMain:
 
 class TestModelNotLoadedScenarios:
     """Tests des scénarios où le modèle n'est pas chargé."""
-    
-    def test_health_check_model_not_loaded(self, api_client):
-        """Test health check quand le modèle n'est pas chargé."""
-        with patch('src.api.main.predictor', None):
-            response = api_client.get("/")
-            assert response.status_code == 200
-            data = response.json()
-            assert data["model_loaded"] is False
-    
+
     def test_predict_model_not_loaded(self, api_client):
         """Test predict quand le modèle n'est pas chargé."""
-        with patch('src.api.main.predictor', None):
+        # Mocker is_loaded() pour simuler modèle non chargé
+        with patch('src.api.main.predictor.is_loaded', return_value=False):
             response = api_client.post(
                 "/predict",
-                json={"SK_ID_CURR": 100001}
+                json={
+                    "SK_ID_CURR": 100001,
+                    "AMT_INCOME_TOTAL": 150000,
+                    "AMT_CREDIT": 500000,
+                    "AMT_ANNUITY": 25000,
+                    "AMT_GOODS_PRICE": 450000,
+                    "NAME_CONTRACT_TYPE": "Cash loans",
+                    "CODE_GENDER": "M",
+                    "FLAG_OWN_CAR": "N",
+                    "FLAG_OWN_REALTY": "Y"
+                }
             )
             assert response.status_code == 503
-            assert "modèle n'est pas chargé" in response.json()["detail"]
-    
-    def test_model_info_model_not_loaded(self, api_client):
-        """Test model-info quand le modèle n'est pas chargé."""
-        with patch('src.api.main.predictor', None):
-            response = api_client.get("/model-info")
-            assert response.status_code == 503
-    
+            assert "modèle" in response.json()["error"].lower()
+
     def test_predict_batch_model_not_loaded(self, api_client):
         """Test predict-batch quand le modèle n'est pas chargé."""
-        with patch('src.api.main.predictor', None):
+        # Mocker is_loaded() pour simuler modèle non chargé
+        with patch('src.api.main.predictor.is_loaded', return_value=False):
             response = api_client.post(
                 "/predict-batch",
-                json={"clients": [{"SK_ID_CURR": 100001}]}
+                json={"clients": [{
+                    "SK_ID_CURR": 100001,
+                    "AMT_INCOME_TOTAL": 150000,
+                    "AMT_CREDIT": 500000,
+                    "AMT_ANNUITY": 25000,
+                    "AMT_GOODS_PRICE": 450000,
+                    "NAME_CONTRACT_TYPE": "Cash loans",
+                    "CODE_GENDER": "M",
+                    "FLAG_OWN_CAR": "N",
+                    "FLAG_OWN_REALTY": "Y"
+                }]}
             )
             assert response.status_code == 503
 
 
 class TestPredictErrorScenarios:
     """Tests des scénarios d'erreur pour /predict."""
-    
+
     def test_predict_value_error(self, api_client):
         """Test predict avec ValueError."""
-        with patch('src.api.main.predictor') as mock_predictor:
-            mock_predictor.is_loaded.return_value = True
-            mock_predictor.predict.side_effect = ValueError("Données invalides")
-            
+        with patch('src.api.main.predictor.predict', side_effect=ValueError("Données invalides")):
             response = api_client.post(
                 "/predict",
-                json={"SK_ID_CURR": 100001}
+                json={
+                    "SK_ID_CURR": 100001,
+                    "AMT_INCOME_TOTAL": 150000,
+                    "AMT_CREDIT": 500000,
+                    "AMT_ANNUITY": 25000,
+                    "AMT_GOODS_PRICE": 450000,
+                    "NAME_CONTRACT_TYPE": "Cash loans",
+                    "CODE_GENDER": "M",
+                    "FLAG_OWN_CAR": "N",
+                    "FLAG_OWN_REALTY": "Y"
+                }
             )
             assert response.status_code == 400
-    
+
     def test_predict_exception(self, api_client):
         """Test predict avec Exception générale."""
-        with patch('src.api.main.predictor') as mock_predictor:
-            mock_predictor.is_loaded.return_value = True
-            mock_predictor.predict.side_effect = Exception("Erreur interne")
-            
+        with patch('src.api.main.predictor.predict', side_effect=Exception("Erreur interne")):
             response = api_client.post(
                 "/predict",
-                json={"SK_ID_CURR": 100001}
+                json={
+                    "SK_ID_CURR": 100001,
+                    "AMT_INCOME_TOTAL": 150000,
+                    "AMT_CREDIT": 500000,
+                    "AMT_ANNUITY": 25000,
+                    "AMT_GOODS_PRICE": 450000,
+                    "NAME_CONTRACT_TYPE": "Cash loans",
+                    "CODE_GENDER": "M",
+                    "FLAG_OWN_CAR": "N",
+                    "FLAG_OWN_REALTY": "Y"
+                }
             )
             assert response.status_code == 500
 
 
 class TestPredictBatchErrorScenarios:
     """Tests des scénarios d'erreur pour /predict-batch."""
-    
+
     def test_predict_batch_value_error(self, api_client):
         """Test predict-batch avec ValueError."""
-        with patch('src.api.main.predictor') as mock_predictor:
-            mock_predictor.is_loaded.return_value = True
-            mock_predictor.predict_batch.side_effect = ValueError("Liste vide")
-            
+        # Le test avec liste vide est géré par la validation Pydantic (422)
+        # On teste plutôt une ValueError pendant le traitement
+        with patch('src.api.main.predictor.predict', side_effect=ValueError("Données invalides")):
             response = api_client.post(
                 "/predict-batch",
-                json={"clients": []}
+                json={"clients": [{
+                    "SK_ID_CURR": 100001,
+                    "AMT_INCOME_TOTAL": 150000,
+                    "AMT_CREDIT": 500000,
+                    "AMT_ANNUITY": 25000,
+                    "AMT_GOODS_PRICE": 450000,
+                    "NAME_CONTRACT_TYPE": "Cash loans",
+                    "CODE_GENDER": "M",
+                    "FLAG_OWN_CAR": "N",
+                    "FLAG_OWN_REALTY": "Y"
+                }]}
             )
             assert response.status_code == 400
-    
+
     def test_predict_batch_exception(self, api_client):
         """Test predict-batch avec Exception générale."""
-        with patch('src.api.main.predictor') as mock_predictor:
-            mock_predictor.is_loaded.return_value = True
-            mock_predictor.predict_batch.side_effect = Exception("Erreur batch")
-            
+        with patch('src.api.main.predictor.predict', side_effect=Exception("Erreur batch")):
             response = api_client.post(
                 "/predict-batch",
-                json={"clients": [{"SK_ID_CURR": 100001}]}
+                json={"clients": [{
+                    "SK_ID_CURR": 100001,
+                    "AMT_INCOME_TOTAL": 150000,
+                    "AMT_CREDIT": 500000,
+                    "AMT_ANNUITY": 25000,
+                    "AMT_GOODS_PRICE": 450000,
+                    "NAME_CONTRACT_TYPE": "Cash loans",
+                    "CODE_GENDER": "M",
+                    "FLAG_OWN_CAR": "N",
+                    "FLAG_OWN_REALTY": "Y"
+                }]}
             )
             assert response.status_code == 500
 

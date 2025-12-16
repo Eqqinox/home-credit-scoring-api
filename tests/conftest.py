@@ -5,6 +5,7 @@ Contient les fixtures communes utilisées par plusieurs modules de test.
 
 import pytest
 import json
+import os
 from pathlib import Path
 from fastapi.testclient import TestClient
 from src.api.main import app
@@ -15,21 +16,27 @@ from src.api.predictor import CreditScoringPredictor
 def api_client():
     """
     Fixture fournissant un client de test pour l'API.
-    
+
     Returns:
         TestClient FastAPI pour tester les endpoints
     """
-    # Créer d'abord le TestClient (cela déclenche le lifespan et charge le modèle)
-    client = TestClient(app)
-    
-    # Ensuite importer et vérifier le predictor
-    from src.api.main import predictor
-    
-    # Vérifier que le modèle est chargé
-    if predictor is None or not predictor.is_loaded():
-        pytest.skip("Le modèle n'a pas pu être chargé pour les tests")
-    
-    return client
+    # Désactiver PostgreSQL pendant les tests (avant import de l'app)
+    from src.api import config
+    config.settings.db_store_predictions = False
+
+    # Créer le TestClient avec context manager pour forcer le lifespan
+    with TestClient(app) as client:
+        # Vérifier le predictor
+        from src.api.main import predictor
+
+        # Vérifier que le modèle est chargé
+        if predictor is None or not predictor.is_loaded():
+            pytest.skip("Le modèle n'a pas pu être chargé pour les tests")
+
+        yield client
+
+    # Réactiver PostgreSQL après les tests (cleanup)
+    config.settings.db_store_predictions = True
 
 
 @pytest.fixture
