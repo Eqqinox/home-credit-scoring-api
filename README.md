@@ -85,7 +85,7 @@ Le coût d'un **Faux Négatif** (mauvais client accepté) est **10x** supérieur
 - ✅ Sélection du meilleur modèle : **LightGBM** (AUC = 0.76)
 - ✅ Optimisation des hyperparamètres et du seuil métier
 
-### 🚀 Partie 2 - Mise en production (90% complétée)
+### 🚀 Partie 2 - Mise en production (75% complétée)
 
 #### Étape 1 : Contrôle de Version ✅
 - Repository GitHub public
@@ -99,13 +99,14 @@ Le coût d'un **Faux Négatif** (mauvais client accepté) est **10x** supérieur
 - Pipeline GitHub Actions (test, build, push, deploy)
 - Déploiement Hugging Face Spaces : [API Live](https://eqqinox-credit-scoring-api.hf.space)
 
-#### Étape 3 : Stockage & Monitoring ✅ (90%)
+#### Étape 3 : Stockage & Monitoring ✅ (Complétée)
 - **Phase 1 ✅** : Base PostgreSQL (4 tables créées)
 - **Phase 2 ✅** : Logging structuré JSON (structlog)
 - **Phase 3 ✅** : Intégration PostgreSQL (PredictionStorage)
 - **Phase 4 ✅** : Simulation de trafic (114 prédictions)
 - **Phase 5 ✅** : Dashboard Streamlit (5 pages, 8 visualisations)
-- **Phase 6 ⏳** : Détection Data Drift (Evidently AI) - En cours
+- **Phase 6 ✅** : Détection Data Drift (Evidently AI) - Opérationnelle
+- **Phase 7 ⏳** : Documentation (MONITORING.md créé) - En cours
 
 #### Étape 4 : Optimisation Performances ⏳ (À faire)
 - Profiling (cProfile)
@@ -130,15 +131,17 @@ home-credit-scoring-api/
 │   ├── monitoring/
 │   │   ├── logger.py                # Logging structuré (structlog)
 │   │   ├── storage.py               # PostgreSQL ORM (SQLAlchemy)
+│   │   ├── drift_detector.py        # Détection drift (Evidently AI)
 │   │   ├── dashboard.py             # Page d'accueil Streamlit
 │   │   └── pages/
 │   │       ├── overview.py          # KPIs + filtres temporels
 │   │       ├── performance.py       # Latences + erreurs
 │   │       ├── business.py          # Profils clients + montants
-│   │       └── drift.py             # Data drift (Phase 6)
+│   │       └── drift.py             # Data drift (rapports HTML)
 │   └── scripts/
 │       ├── init_database.py         # Init PostgreSQL
-│       └── simulate_traffic.py      # Simulation trafic
+│       ├── simulate_traffic.py      # Simulation trafic
+│       └── generate_drift_report.py # Génération rapports drift
 ├── tests/
 │   ├── test_api_endpoints.py
 │   ├── test_predictor.py
@@ -158,9 +161,12 @@ home-credit-scoring-api/
 │       └── train_reference.parquet  # Dataset référence (272 MiB)
 ├── notebooks/
 │   └── 01_Modelisation_MLflow.ipynb
+├── reports/
+│   └── drift/                       # Rapports Evidently AI (HTML/JSON)
 ├── example_single_request.json      # Exemple API (1 client)
 ├── example_batch_request.json       # Exemple API (3 clients)
 ├── API_USAGE.md                     # Guide utilisation API
+├── MONITORING.md                    # Guide monitoring complet
 ├── Dockerfile
 ├── Dockerfile.huggingface
 ├── docker-compose.yml
@@ -324,10 +330,13 @@ Le dashboard Streamlit offre **5 pages** de monitoring en temps réel :
 - Pie chart : Profils clients (Approve/Refuse)
 - Histogram : Distribution des montants de crédit
 
-### 🔍 Page Data Drift
-- Placeholder Phase 6 avec graphique exemple
-- Instructions génération rapports Evidently AI
-- Historique scores de drift (à venir)
+### 🔍 Page Data Drift (Evidently AI)
+- **4 KPIs** : Drift détecté (OUI/NON), score de drift, features affectées, seuil alerte
+- **Rapport HTML interactif** : Visualisations Evidently AI (distributions, tests statistiques)
+- **Historique** : Line chart évolution des scores de drift dans le temps
+- **Génération** : Commande `python src/scripts/generate_drift_report.py --days 7`
+
+**Seuil d'alerte** : 30% des features avec drift → Réentraînement recommandé
 
 **Auto-refresh** : 30 secondes
 
@@ -493,6 +502,7 @@ open htmlcov/index.html
 ## 📚 Documentation
 
 - **API** : `API_USAGE.md` - Guide complet d'utilisation
+- **Monitoring** : `MONITORING.md` - Guide système de monitoring et détection drift
 - **Swagger UI** : http://localhost:8000/docs
 - **Redoc** : http://localhost:8000/redoc
 - **CLAUDE.md** : Contexte technique complet (non versionné)
@@ -525,4 +535,4 @@ MIT License
 
 ---
 
-*Dernière mise à jour : 10 décembre 2025*
+*Dernière mise à jour : 15 décembre 2025*
