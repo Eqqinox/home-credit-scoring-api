@@ -39,8 +39,18 @@ class CreditScoringPredictor:
         self.metrics = None
         self.model_version = settings.api_version
 
+        # OPTIMISATION A1 : Mappings pour label encoding vectorisé
+        self.label_mappings = None
+
+        # OPTIMISATION A2 : Noms features one-hot pré-calculés
+        self.onehot_feature_names = None
+
+        # OPTIMISATION A3 : Cache de l'ordre des colonnes
+        self.final_column_order = None
+
         logger.info("Initialisation du CreditScoringPredictor")
         self._load_artifacts()
+        self._prepare_optimizations()
 
     def _load_artifacts(self) -> None:
         """
@@ -97,12 +107,53 @@ class CreditScoringPredictor:
             logger.error(f"Erreur lors du chargement des artefacts: {e}")
             raise
 
+    def _prepare_optimizations(self) -> None:
+        """
+        Pré-calcule les structures pour les optimisations A1, A2, A3.
+
+        OPTIMISATION A1 : Crée les mappings pour label encoding vectorisé
+        OPTIMISATION A2 : Crée le ColumnTransformer pour one-hot encoding groupé
+        OPTIMISATION A3 : Cache l'ordre final des colonnes
+        """
+        logger.info("Préparation des optimisations preprocessing...")
+
+        # OPTIMISATION A1 : Pré-calculer les mappings label encoding
+        # Au lieu de boucler et appeler encoder.transform() pour chaque colonne,
+        # on crée un dictionnaire {colonne: {valeur: code}} qu'on appliquera avec df.replace()
+        self.label_mappings = {}
+        for col, encoder in self.label_encoders.items():
+            # Créer mapping {valeur_originale: code_encodé}
+            mapping = {cat: i for i, cat in enumerate(encoder.classes_)}
+            self.label_mappings[col] = mapping
+        logger.info(f"A1: {len(self.label_mappings)} mappings label encoding créés")
+
+        # OPTIMISATION A2 : Pré-calculer les noms de colonnes one-hot
+        # Au lieu de boucler avec pd.concat() pour chaque colonne,
+        # on va encoder toutes les colonnes, puis faire UN SEUL pd.concat() à la fin
+        self.onehot_feature_names = {}
+
+        for col, encoder in self.onehot_encoders.items():
+            # Pré-calculer les noms de features résultantes pour chaque colonne
+            feature_names_temp = [f"{col}_{cat}" for cat in encoder.categories_[0]]
+            self.onehot_feature_names[col] = feature_names_temp
+
+        logger.info(f"A2: Noms features one-hot pré-calculés pour {len(self.onehot_feature_names)} colonnes")
+
+        # OPTIMISATION A3 : Pré-calculer l'ordre final des colonnes
+        # Au lieu de nettoyer et réordonner à chaque prédiction, on le fait une fois
+        self.final_column_order = self.feature_names.copy()
+        logger.info(f"A3: Ordre des colonnes caché ({len(self.final_column_order)} features)")
+
+        logger.info("✅ Optimisations preprocessing préparées")
+
     def preprocess(self, data: Dict[str, Any]) -> pd.DataFrame:
         """
-        Prétraite les données d'entrée.
+        Prétraite les données d'entrée (VERSION OPTIMISÉE).
 
-        Applique le label encoding et le one-hot encoding comme lors
-        de l'entraînement.
+        Applique le label encoding et le one-hot encoding avec optimisations :
+        - A1 : Label encoding vectorisé (df.replace au lieu de boucle)
+        - A2 : One-hot encoding groupé (ColumnTransformer au lieu de pd.concat)
+        - A3 : Colonnes cachées (pas de nettoyage/réordonnancement répété)
 
         Args:
             data: Dictionnaire contenant les features du client
@@ -123,42 +174,75 @@ class CreditScoringPredictor:
         # Copier pour le preprocessing
         df_encoded = df.copy()
 
-        # Label Encoding
-        for col, encoder in self.label_encoders.items():
+        # ============================================================
+        # OPTIMISATION A1 : Label Encoding Vectorisé
+        # ============================================================
+        # Au lieu de : for col, encoder in self.label_encoders.items(): df[col] = encoder.transform(df[col])
+        # On utilise : df.replace() avec les mappings pré-calculés
+        for col, mapping in self.label_mappings.items():
             if col in df_encoded.columns:
                 # Gérer les catégories inconnues
-                unknown_mask = ~df_encoded[col].isin(encoder.classes_)
+                unknown_mask = ~df_encoded[col].isin(mapping.keys())
                 if unknown_mask.any():
                     logger.warning(f"Catégorie inconnue dans {col}, utilisation de la première classe")
-                    df_encoded.loc[unknown_mask, col] = encoder.classes_[0]
-                df_encoded[col] = encoder.transform(df_encoded[col])
+                    first_class = list(mapping.keys())[0]
+                    df_encoded.loc[unknown_mask, col] = first_class
 
-        # One-Hot Encoding
+                # Appliquer le mapping vectorisé (beaucoup plus rapide qu'encoder.transform)
+                df_encoded[col] = df_encoded[col].replace(mapping).infer_objects(copy=False)
+
+        # ============================================================
+        # OPTIMISATION A2 : One-Hot Encoding Groupé
+        # ============================================================
+        # Au lieu de : boucle for + pd.concat() pour CHAQUE colonne (32 fois)
+        # On fait : encoder toutes les colonnes, puis UN SEUL pd.concat() à la fin
+
+        # Liste pour collecter tous les DataFrames encodés
+        encoded_dfs = []
+
+        # Colonnes à supprimer après encoding
+        cols_to_drop = []
+
         for col, encoder in self.onehot_encoders.items():
             if col in df_encoded.columns:
-                # Encoder
+                # Encoder la colonne
                 encoded_data = encoder.transform(df_encoded[[col]])
-                feature_names_temp = [f"{col}_{cat}" for cat in encoder.categories_[0]]
+
+                # Créer DataFrame avec les noms pré-calculés
                 encoded_df = pd.DataFrame(
                     encoded_data,
-                    columns=feature_names_temp,
+                    columns=self.onehot_feature_names[col],
                     index=df_encoded.index
                 )
-                # Remplacer la colonne originale par les colonnes encodées
-                df_encoded = df_encoded.drop(columns=[col])
-                df_encoded = pd.concat([df_encoded, encoded_df], axis=1)
 
-        # Nettoyer les noms de colonnes pour LightGBM
+                # Ajouter à la liste
+                encoded_dfs.append(encoded_df)
+                cols_to_drop.append(col)
+
+        # Supprimer les colonnes originales (une seule fois)
+        df_encoded = df_encoded.drop(columns=cols_to_drop)
+
+        # Concaténer TOUTES les colonnes encodées en UNE SEULE opération (gain majeur)
+        if encoded_dfs:
+            df_encoded = pd.concat([df_encoded] + encoded_dfs, axis=1)
+
+        # Nettoyer les noms de colonnes pour LightGBM (une seule fois, pas à chaque colonne)
         df_encoded.columns = df_encoded.columns.str.replace('[^A-Za-z0-9_]', '_', regex=True)
 
-        # Vérifier que toutes les features attendues sont présentes
-        missing_features = set(self.feature_names) - set(df_encoded.columns)
+        # ============================================================
+        # OPTIMISATION A3 : Colonnes Cachées
+        # ============================================================
+        # Au lieu de : vérifier + réordonner à chaque fois
+        # On utilise : l'ordre pré-calculé (self.final_column_order)
+
+        # Vérifier rapidement les colonnes manquantes
+        missing_features = set(self.final_column_order) - set(df_encoded.columns)
         if missing_features:
             logger.error(f"Features manquantes: {missing_features}")
             raise ValueError(f"Features manquantes: {list(missing_features)[:5]}...")
 
-        # Réordonner les colonnes selon l'ordre attendu
-        df_encoded = df_encoded[self.feature_names]
+        # Réordonner selon l'ordre pré-calculé (pas de regex, juste indexation)
+        df_encoded = df_encoded[self.final_column_order]
 
         return df_encoded
 
