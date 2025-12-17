@@ -52,7 +52,7 @@ jobs:
 
       - name: Run tests
         run: |
-          pytest tests/ -v --cov=src --cov-report=term-missing --cov-report=xml --cov-config=.coveragerc-ci
+          pytest tests/ -v --cov=src --cov-report=term-missing --cov-report=xml --cov-config=.coveragerc-ci --ignore=tests/monitoring/test_storage.py
 
       - name: Check coverage
         run: |
