@@ -140,7 +140,7 @@ home-credit-scoring-api/
   │   └── workflows/
   │       └── ci-cd.yml                     # Pipeline CI/CD
   ├── data/                                 
-  │   └── README.md                          # Documentation dataset (non versionné)    
+  │   └── README.md                         # Documentation dataset (non versionné)    
   ├── docs/
   │   ├── OPTIMIZATION_REPORT.md            # Rapport optimisations
   │   └── RGPD_COMPLIANCE.md                # Conformité RGPD
