@@ -1,13 +1,13 @@
 # Guide d'Utilisation de l'API Credit Scoring
 
-## 🔗 URL de l'API Déployée
+## URL de l'API Déployée
 
 - **Production**: https://eqqinox-credit-scoring-api.hf.space
 - **Swagger UI**: https://eqqinox-credit-scoring-api.hf.space/docs
 
 ---
 
-## 📋 Endpoints Disponibles
+## Endpoints Disponibles
 
 ### 1. Health Check
 ```bash
@@ -35,7 +35,7 @@ curl -X POST https://eqqinox-credit-scoring-api.hf.space/predict-batch \
 
 ---
 
-## 📄 Fichiers d'Exemple
+## Fichiers d'Exemple
 
 ### `example_single_request.json`
 - Contient **1 client** avec toutes les 645 features
@@ -49,7 +49,7 @@ curl -X POST https://eqqinox-credit-scoring-api.hf.space/predict-batch \
 
 ---
 
-## 🧪 Tests Locaux
+## Tests Locaux
 
 ### Test en local (port 8000)
 ```bash
@@ -66,7 +66,7 @@ curl -X POST http://localhost:8000/predict-batch \
 
 ---
 
-## 📊 Réponse Attendue
+## Réponse Attendue
 
 ### `/predict` (single)
 ```json
@@ -115,7 +115,7 @@ curl -X POST http://localhost:8000/predict-batch \
 
 ---
 
-## ⚠️ Notes Importantes
+## Notes Importantes
 
 ### Features Requises
 L'API nécessite **toutes les 645 features** du dataset d'entraînement :
@@ -135,7 +135,7 @@ En production réelle, ces features seraient pré-calculées dans un data wareho
 
 ---
 
-## 🐛 Dépannage
+## Dépannage
 
 ### Erreur 400: Features manquantes
 ```json
@@ -161,4 +161,7 @@ En production réelle, ces features seraient pré-calculées dans un data wareho
 
 ---
 
-*Dernière mise à jour: Décembre 2025*
+*Dernière mise à jour: Décembre 2025*  
+*Projet Home Credit Scoring API - OpenClassrooms*.  
+*Auteur : Mounir Meknaci*.  
+*Version : 1.0*

@@ -451,46 +451,6 @@ class TestPredictBatchIndividualErrors:
             predictor.predict_batch(invalid_clients)
 
 
-class TestLifespanErrors:
-    """Tests des erreurs au démarrage de l'application (lifespan)."""
-
-    @pytest.mark.skip(reason="Mock ne fonctionne pas avec le lifespan déjà initialisé")
-    def test_lifespan_model_loading_failure(self):
-        """Teste l'échec de chargement du modèle au startup."""
-        # NOTE: Désactivé car le predictor est déjà chargé globalement
-        from fastapi import FastAPI
-        from fastapi.testclient import TestClient
-
-        # Mock CreditScoringPredictor pour lever une exception
-        with patch('src.api.main.CreditScoringPredictor') as mock_predictor:
-            mock_predictor.side_effect = FileNotFoundError("Modèle introuvable")
-
-            # Créer une app avec le lifespan mocké devrait échouer
-            from src.api.main import lifespan
-            test_app = FastAPI(lifespan=lifespan)
-
-            # TestClient va appeler le lifespan, qui devrait échouer
-            with pytest.raises(FileNotFoundError):
-                TestClient(test_app)
-
-    @pytest.mark.skip(reason="Mock ne fonctionne pas avec le lifespan déjà initialisé")
-    def test_lifespan_general_exception(self):
-        """Teste une exception générale au démarrage."""
-        # NOTE: Désactivé car le predictor est déjà chargé globalement
-        from fastapi import FastAPI
-        from fastapi.testclient import TestClient
-
-        with patch('src.api.main.CreditScoringPredictor') as mock_predictor:
-            mock_predictor.side_effect = Exception("Erreur générale")
-
-            from src.api.main import lifespan
-            test_app = FastAPI(lifespan=lifespan)
-
-            # L'exception devrait être propagée lors de l'initialisation du TestClient
-            with pytest.raises(Exception):
-                TestClient(test_app)
-
-
 class TestPredictionResponseEdgeCases:
     """Tests des cas limites des réponses de prédiction."""
 

@@ -1,10 +1,10 @@
-# 📊 Guide de Monitoring - Credit Scoring API
+# Guide de Monitoring - Credit Scoring API
 
 > Documentation complète du système de monitoring et détection de drift
 
 ---
 
-## 📋 Table des Matières
+## Table des Matières
 
 1. [Architecture](#architecture)
 2. [Lancer le Dashboard](#lancer-le-dashboard)
@@ -14,13 +14,13 @@
 
 ---
 
-## 🏗️ Architecture
+## Architecture
 
 ### Vue d'ensemble du système de monitoring
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                     SYSTÈME DE MONITORING                        │
+│                     SYSTÈME DE MONITORING                       │
 └─────────────────────────────────────────────────────────────────┘
                               │
                               ▼
@@ -61,11 +61,11 @@
         │         (Port 8501)                      │
         │                                          │
         │  Pages :                                 │
-        │  🏠 Accueil (statut système)             │
-        │  📈 Overview (KPIs + graphiques)         │
-        │  ⚡ Performance (latences + erreurs)     │
-        │  💼 Business (profils + montants)        │
-        │  🔍 Data Drift (rapports Evidently)      │
+        │  • Accueil (statut système)              │
+        │  • Overview (KPIs + graphiques)          │
+        │  • Performance (latences + erreurs)      │
+        │  • Business (profils + montants)         │
+        │  • Data Drift (rapports Evidently)       │
         │                                          │
         │  Auto-refresh : 30 secondes              │
         └──────────────────────────────────────────┘
@@ -92,7 +92,7 @@
 
 ---
 
-## 🚀 Lancer le Dashboard
+## Lancer le Dashboard
 
 ### Prérequis
 
@@ -151,18 +151,18 @@ docker-compose up -d
 
 ---
 
-## 📊 Interpréter les Métriques
+## Interpréter les Métriques
 
-### Page 🏠 Accueil
+### Page Accueil
 
 **Statut Système**
 
 | Indicateur | Signification |
 |------------|---------------|
-| ✅ API opérationnelle | FastAPI répond (status 200) |
-| ❌ API inaccessible | Vérifier `uvicorn` actif sur port 8000 |
-| ✅ Base de données connectée | PostgreSQL accessible |
-| ❌ PostgreSQL inaccessible | Vérifier `brew services list` |
+| API opérationnelle | FastAPI répond (status 200) |
+| API inaccessible | Vérifier `uvicorn` actif sur port 8000 |
+| Base de données connectée | PostgreSQL accessible |
+| PostgreSQL inaccessible | Vérifier `brew services list` |
 
 **Métriques clés** :
 - **Prédictions totales** : Nombre total en base (table `predictions`)
@@ -170,7 +170,7 @@ docker-compose up -d
 
 ---
 
-### Page 📈 Overview
+### Page Overview
 
 **4 KPIs principaux**
 
@@ -181,18 +181,18 @@ docker-compose up -d
 2. **Taux d'Approbation**
    - Formule : `(approve_count / total_predictions) × 100`
    - **Normal** : 70-85% (selon population)
-   - **⚠️ Alerte** : < 50% ou > 95% (anomalie possible)
+   - **Alerte** : < 50% ou > 95% (anomalie possible)
 
 3. **Latence Moyenne**
    - Temps de réponse total (ms)
    - **Bon** : < 50 ms
    - **Acceptable** : 50-100 ms
-   - **⚠️ Lent** : > 100 ms
+   - **Lent** : > 100 ms
 
 4. **Taux d'Erreur**
    - Formule : `(error_count / total_predictions) × 100`
    - **Normal** : < 1%
-   - **⚠️ Alerte** : > 5%
+   - **Alerte** : > 5%
 
 **Graphiques**
 
@@ -215,7 +215,7 @@ docker-compose up -d
 
 ---
 
-### Page ⚡ Performance
+### Page Performance
 
 **Boxplot Latences**
 
@@ -224,9 +224,9 @@ docker-compose up -d
 - **Outliers** (points) : requêtes anormalement lentes
 
 **Interprétation** :
-- Médiane < 50 ms : ✅ Excellent
-- Médiane 50-100 ms : ⚠️ Acceptable
-- Médiane > 100 ms : ❌ Investigation nécessaire
+- Médiane < 50 ms : Excellent
+- Médiane 50-100 ms : Acceptable
+- Médiane > 100 ms : Investigation nécessaire
 
 **Top 10 Requêtes Lentes**
 
@@ -243,7 +243,7 @@ Action si latence > 200 ms :
 
 ---
 
-### Page 💼 Business
+### Page Business
 
 **Pie Chart Profils**
 
@@ -256,24 +256,24 @@ Action si latence > 200 ms :
 - Superposition par décision (approve en vert, refuse en rouge)
 
 **Interprétation** :
-- Montants élevés refusés : ✅ Normal (risque++)
-- Petits montants refusés : ⚠️ Vérifier seuil trop strict
+- Montants élevés refusés : Normal (risque++)
+- Petits montants refusés : Vérifier seuil trop strict
 
 ---
 
-### Page 🔍 Data Drift
+### Page Data Drift
 
 **KPIs Drift**
 
 1. **Drift Détecté**
-   - ✅ NON : Distribution stable
-   - ⚠️ OUI : Changement significatif détecté
+   - NON : Distribution stable
+   - OUI : Changement significatif détecté
 
 2. **Score de Drift**
    - Formule : `n_features_drifted / n_features_analyzed`
    - **Normal** : < 0.2 (20%)
-   - **⚠️ Attention** : 0.2-0.3 (20-30%)
-   - **❌ Critique** : > 0.3 (30%) → **Réentraînement recommandé**
+   - **Attention** : 0.2-0.3 (20-30%)
+   - **Critique** : > 0.3 (30%) → **Réentraînement recommandé**
 
 3. **Features Affectées**
    - Nombre de features avec drift significatif
@@ -295,7 +295,7 @@ Action si latence > 200 ms :
 
 ---
 
-## 🔔 Configuration des Alertes
+## Configuration des Alertes
 
 ### Seuils Recommandés
 
@@ -334,11 +334,11 @@ def check_alerts():
     # Alerte taux d'erreur
     error_rate = stats['error_count'] / stats['total_predictions'] if stats['total_predictions'] > 0 else 0
     if error_rate > 0.05:
-        alerts.append(f"⚠️ Taux d'erreur élevé: {error_rate:.2%}")
+        alerts.append(f"Taux d'erreur élevé: {error_rate:.2%}")
 
     # Alerte latence
     if stats['avg_inference_time_ms'] > 100:
-        alerts.append(f"⚠️ Latence élevée: {stats['avg_inference_time_ms']:.2f} ms")
+        alerts.append(f"Latence élevée: {stats['avg_inference_time_ms']:.2f} ms")
 
     # Afficher alertes
     if alerts:
@@ -348,7 +348,7 @@ def check_alerts():
         for alert in alerts:
             print(alert)
     else:
-        print("✅ Aucune alerte")
+        print("Aucune alerte")
 
     storage.close()
 
@@ -397,7 +397,7 @@ def send_email_alert(subject, body):
 
 ---
 
-## 🛠️ Troubleshooting
+## Troubleshooting
 
 ### Problème 1 : Dashboard n'affiche aucune donnée
 
@@ -433,7 +433,7 @@ def send_email_alert(subject, body):
 ### Problème 2 : API inaccessible
 
 **Symptômes** :
-- Page d'accueil affiche "❌ API inaccessible"
+- Page d'accueil affiche "API inaccessible"
 - Erreur "Connection refused"
 
 **Solutions** :
@@ -526,28 +526,28 @@ def send_email_alert(subject, body):
 
 ---
 
-## 📚 Références
+## Références
 
 ### Commandes Utiles
 
 ```bash
 # PostgreSQL
-psql -U moon -d credit_scoring_prod                      # Connexion
-\dt                                                       # Liste tables
-SELECT COUNT(*) FROM predictions;                         # Compter prédictions
-SELECT decision, COUNT(*) FROM predictions GROUP BY decision;  # Stats décisions
+psql -U moon -d credit_scoring_prod                                   # Connexion
+\dt                                                                   # Liste tables
+SELECT COUNT(*) FROM predictions;                                     # Compter prédictions
+SELECT decision, COUNT(*) FROM predictions GROUP BY decision;         # Stats décisions
 
 # Streamlit
-streamlit run src/monitoring/dashboard.py --server.port 8501  # Lancer
-streamlit cache clear                                     # Vider cache
-pkill -f "streamlit run"                                  # Arrêter
+streamlit run src/monitoring/dashboard.py --server.port 8501          # Lancer
+streamlit cache clear                                                 # Vider cache
+pkill -f "streamlit run"                                              # Arrêter
 
 # Drift
 python src/scripts/generate_drift_report.py --days 7 --threshold 0.3  # Générer rapport
-ls -lh reports/drift/                                     # Lister rapports
+ls -lh reports/drift/                                                 # Lister rapports
 
 # Simulation
-python src/scripts/simulate_traffic.py --num-predictions 100  # Générer trafic
+python src/scripts/simulate_traffic.py --num-predictions 100          # Générer trafic
 ```
 
 ### Documentation Externe
@@ -559,6 +559,7 @@ python src/scripts/simulate_traffic.py --num-predictions 100  # Générer trafic
 
 ---
 
-**Dernière mise à jour** : 15 décembre 2025
-**Auteur** : Mounir Meknaci
-**Projet** : Home Credit - API de Scoring Crédit (MLOps)
+*Dernière mise à jour: Décembre 2025*  
+*Projet Home Credit Scoring API - OpenClassrooms*.  
+*Auteur : Mounir Meknaci*.  
+*Version : 1.0*

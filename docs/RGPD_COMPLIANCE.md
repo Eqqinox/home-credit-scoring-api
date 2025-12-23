@@ -1,10 +1,10 @@
-# 🔒 Conformité RGPD - Credit Scoring API
+# Conformité RGPD - Credit Scoring API
 
 > Analyse de conformité au Règlement Général sur la Protection des Données (RGPD)
 
 ---
 
-## 📋 Sommaire
+## Sommaire
 
 1. [Contexte du projet](#contexte-du-projet)
 2. [Données collectées](#données-collectées)
@@ -14,7 +14,7 @@
 
 ---
 
-## 🎯 Contexte du projet
+## Contexte du projet
 
 ### Nature des données
 
@@ -29,18 +29,18 @@ Ce projet utilise le dataset **Kaggle Home Credit Default Risk** à des fins **a
 
 | Critère | Statut | Justification |
 |---------|--------|---------------|
-| Données personnelles réelles | ❌ NON | Dataset Kaggle anonymisé |
-| Identifiants directs | ❌ NON | SK_ID_CURR est fictif |
-| Traitement à des fins commerciales | ❌ NON | Projet académique (OpenClassrooms) |
-| Stockage données sensibles | ⚠️ PARTIEL | Variables financières (montants, revenus) mais non identifiantes |
+| Données personnelles réelles | NON | Dataset Kaggle anonymisé |
+| Identifiants directs | NON | SK_ID_CURR est fictif |
+| Traitement à des fins commerciales | NON | Projet académique (OpenClassrooms) |
+| Stockage données sensibles | PARTIEL | Variables financières (montants, revenus) mais non identifiantes |
 
 **Conclusion** : Le projet n'est **pas directement soumis au RGPD** car il ne traite pas de données personnelles réelles. Cependant, cette documentation présente les bonnes pratiques à appliquer pour une **mise en production réelle**.
 
 ---
 
-## 📊 Données collectées
+## Données collectées
 
-### Base de données PostgreSQL
+### Base de données PostgreSQL (locale)
 
 La base `credit_scoring_prod` stocke les informations suivantes :
 
@@ -48,31 +48,31 @@ La base `credit_scoring_prod` stocke les informations suivantes :
 
 | Colonne | Type | Données sensibles ? | Justification |
 |---------|------|---------------------|---------------|
-| `id` | Integer (PK) | ❌ NON | ID technique auto-incrémenté |
-| `created_at` | Timestamp | ⚠️ MÉTADONNÉE | Date de traitement |
-| `client_id` | Integer | ⚠️ IDENTIFIANT | **À pseudonymiser en production** |
-| `probability` | Float | ✅ OUI | Score de risque (décision automatisée) |
-| `prediction` | Integer | ✅ OUI | Résultat binaire (0/1) |
-| `decision` | String | ✅ OUI | Décision métier (approve/refuse) |
-| `confidence_level` | String | ⚠️ MÉTADONNÉE | Niveau de confiance (LOW/MEDIUM/HIGH) |
-| `threshold_used` | Float | ❌ NON | Paramètre technique |
-| `model_version` | String | ❌ NON | Version du modèle |
-| `preprocessing_time_ms` | Float | ❌ NON | Métrique technique |
-| `inference_time_ms` | Float | ❌ NON | Métrique technique |
-| `total_time_ms` | Float | ❌ NON | Métrique technique |
-| `http_status_code` | Integer | ❌ NON | Code réponse HTTP |
-| `endpoint` | String | ❌ NON | Endpoint appelé |
-| `data_quality_score` | Float | ⚠️ MÉTADONNÉE | Score qualité données |
+| `id` | Integer (PK) | NON | ID technique auto-incrémenté |
+| `created_at` | Timestamp | MÉTADONNÉE | Date de traitement |
+| `client_id` | Integer | IDENTIFIANT | **À pseudonymiser en production** |
+| `probability` | Float | OUI | Score de risque (décision automatisée) |
+| `prediction` | Integer | OUI | Résultat binaire (0/1) |
+| `decision` | String | OUI | Décision métier (approve/refuse) |
+| `confidence_level` | String | MÉTADONNÉE | Niveau de confiance (LOW/MEDIUM/HIGH) |
+| `threshold_used` | Float | NON | Paramètre technique |
+| `model_version` | String | NON | Version du modèle |
+| `preprocessing_time_ms` | Float | NON | Métrique technique |
+| `inference_time_ms` | Float | NON | Métrique technique |
+| `total_time_ms` | Float | NON | Métrique technique |
+| `http_status_code` | Integer | NON | Code réponse HTTP |
+| `endpoint` | String | NON | Endpoint appelé |
+| `data_quality_score` | Float | MÉTADONNÉE | Score qualité données |
 
 #### Table `feature_values` (top 20 features par prédiction)
 
 | Colonne | Données sensibles ? |
 |---------|---------------------|
-| `id` | ❌ NON (ID technique) |
-| `prediction_id` | ❌ NON (Foreign Key) |
-| `feature_name` | ❌ NON (Nom variable) |
-| `feature_value` | ✅ OUI (Valeur financière) |
-| `created_at` | ⚠️ MÉTADONNÉE |
+| `id` | NON (ID technique) |
+| `prediction_id` | NON (Foreign Key) |
+| `feature_name` | NON (Nom variable) |
+| `feature_value` | OUI (Valeur financière) |
+| `created_at` | MÉTADONNÉE |
 
 **Exemples de features stockées** :
 - `AMT_CREDIT` : Montant du crédit demandé
@@ -84,24 +84,24 @@ La base `credit_scoring_prod` stocke les informations suivantes :
 
 | Colonne | Données sensibles ? |
 |---------|---------------------|
-| `id` | ❌ NON |
-| `report_data` | ⚠️ AGRÉGÉES | Statistiques agrégées (pas de données individuelles) |
-| `created_at` | ⚠️ MÉTADONNÉE |
+| `id` | NON |
+| `report_data` | AGRÉGÉES | Statistiques agrégées (pas de données individuelles) |
+| `created_at` | MÉTADONNÉE |
 
 #### Table `anomalies` (logs d'erreurs)
 
 | Colonne | Données sensibles ? |
 |---------|---------------------|
-| `id` | ❌ NON |
-| `error_type` | ❌ NON |
-| `error_message` | ⚠️ PEUT CONTENIR | Peut contenir client_id dans le message |
-| `stack_trace` | ❌ NON |
+| `id` | NON |
+| `error_type` | NON |
+| `error_message` | PEUT CONTENIR | Peut contenir client_id dans le message |
+| `stack_trace` | NON |
 
 ### Fichiers de logs (structlog)
 
 **Format** : JSON structuré (production) ou coloré (local)
 
-**Exemple de log** :
+**Exemple de log (tronqué)** :
 ```json
 {
   "event": "prediction",
@@ -115,23 +115,23 @@ La base `credit_scoring_prod` stocke les informations suivantes :
 }
 ```
 
-**⚠️ Contient** : `client_id` (à pseudonymiser en production)
+**Contient** : `client_id` (à pseudonymiser en production)
 
 ---
 
-## 🛡️ Mesures de protection
+## Mesures de protection
 
 ### Mesures actuellement implémentées
 
 | Mesure | Statut | Description |
 |--------|--------|-------------|
-| **Chiffrement en transit** | ✅ PRODUCTION | HTTPS sur Hugging Face Spaces |
-| **Authentification API** | ❌ NON | API publique (académique) |
-| **Validation des entrées** | ✅ OUI | Pydantic schemas (FastAPI) |
-| **Limitation de requêtes** | ❌ NON | Pas de rate limiting |
-| **Logs d'accès** | ✅ OUI | structlog avec timestamps |
-| **Anonymisation client_id** | ❌ NON | Stockage en clair (données fictives) |
-| **Politique de rétention** | ❌ NON | Pas de purge automatique |
+| **Chiffrement en transit** | PRODUCTION | HTTPS sur Hugging Face Spaces |
+| **Authentification API** | NON | API publique (académique) |
+| **Validation des entrées** | OUI | Pydantic schemas (FastAPI) |
+| **Limitation de requêtes** | NON | Pas de rate limiting |
+| **Logs d'accès** | OUI | structlog avec timestamps |
+| **Anonymisation client_id** | NON | Stockage en clair (données fictives) |
+| **Politique de rétention** | NON | Pas de purge automatique |
 
 ### Sécurité PostgreSQL
 
@@ -146,13 +146,13 @@ engine = create_engine(
 )
 ```
 
-**✅ Bonne pratique** : Pool de connexions limité (15 max)
+**Bonne pratique** : Pool de connexions limité (15 max)
 
-**⚠️ Amélioration possible** : Credentials en variable d'environnement (actuellement en dur dans config)
+**Amélioration possible** : Credentials en variable d'environnement (actuellement en dur dans config)
 
 ---
 
-## 🚀 Recommandations pour production réelle
+## Recommandations pour production réelle
 
 ### 1. Pseudonymisation des identifiants (Art. 4.5 RGPD)
 
@@ -221,7 +221,7 @@ def purge_old_predictions(retention_days: int = 90):
     # Suppression en cascade (predictions + feature_values)
     deleted_count = storage.delete_predictions_before(cutoff_date)
 
-    print(f"✅ {deleted_count} prédictions supprimées (> {retention_days} jours)")
+    print(f"{deleted_count} prédictions supprimées (> {retention_days} jours)")
     storage.close()
 
 # Planifier avec cron (quotidien à 2h du matin)
@@ -333,17 +333,17 @@ def encrypt_sensitive_data(data: str, key: bytes) -> bytes:
 
 ---
 
-## ⚠️ Limites du projet académique
+## Limites du projet académique
 
 ### Écarts RGPD (justifiés par le contexte)
 
 | Écart | Justification | En production |
 |-------|---------------|---------------|
-| Pas de pseudonymisation | Données Kaggle fictives | ⚠️ **OBLIGATOIRE** |
-| Pas d'authentification API | Démonstration publique | ⚠️ **OBLIGATOIRE** |
-| Pas de politique de rétention | Besoin de données pour tests | ⚠️ **OBLIGATOIRE** |
-| Pas de chiffrement au repos | Simplicité architecture académique | ✅ Recommandé |
-| Logs contiennent client_id | Debugging facilité | ⚠️ **À PSEUDONYMISER** |
+| Pas de pseudonymisation | Données Kaggle fictives | **OBLIGATOIRE** |
+| Pas d'authentification API | Démonstration publique | **OBLIGATOIRE** |
+| Pas de politique de rétention | Besoin de données pour tests | **OBLIGATOIRE** |
+| Pas de chiffrement au repos | Simplicité architecture académique | Recommandé |
+| Logs contiennent client_id | Debugging facilité | **À PSEUDONYMISER** |
 
 ### Déclaration CNIL
 
@@ -358,7 +358,7 @@ def encrypt_sensitive_data(data: str, key: bytes) -> bytes:
 
 ---
 
-## 📚 Références
+## Références
 
 ### Textes légaux
 
@@ -383,7 +383,7 @@ def encrypt_sensitive_data(data: str, key: bytes) -> bytes:
 
 ---
 
-## ✅ Checklist RGPD Production
+## Checklist RGPD Production
 
 Avant mise en production réelle :
 
@@ -402,7 +402,7 @@ Avant mise en production réelle :
 
 ---
 
-**Dernière mise à jour** : 15 décembre 2025
-**Auteur** : Mounir Meknaci
-**Statut** : Documentation académique (non applicable en l'état)
-**Version** : 1.0
+*Dernière mise à jour: Décembre 2025*  
+*Projet Home Credit Scoring API - OpenClassrooms*.  
+*Auteur : Mounir Meknaci*.  
+*Version : 1.0*

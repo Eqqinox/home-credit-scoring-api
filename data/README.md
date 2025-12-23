@@ -29,20 +29,15 @@ Elles ont été préparées lors de la **Partie 1 du projet** :
 3. **Feature Engineering** : Création de 646 features
 4. **Préparation** : Prêt pour l'encodage et la modélisation
 
-### ⚠️ Note importante
+### Note importante
 
 Ce fichier **N'EST PAS versionné** dans Git car trop volumineux (plusieurs centaines de Mo).
 
 ### Comment obtenir le fichier
 
-#### Option 1 : Depuis le projet original (Partie 1)
-```bash
-cp ../Projet6/app_train_models.csv ./data/
-```
-
-#### Option 2 : Depuis Kaggle (données brutes + preprocessing)
+#### Depuis Kaggle (données brutes + preprocessing)
 1. Télécharger les données depuis Kaggle
-2. Appliquer le notebook d'exploration (Partie 1)
+2. Appliquer le notebook d'exploration (Initiez-vous au MLOps (partie 1/2)- Openclassrooms)
 3. Générer le fichier `app_train_models.csv`
 
 ### Structure attendue
@@ -51,3 +46,10 @@ data/
 ├── README.md                    # Ce fichier
 └── app_train_models.csv         # Fichier de données (non versionné)
 ```
+
+---
+
+*Dernière mise à jour: Décembre 2025*  
+*Projet Home Credit Scoring API - OpenClassrooms*.  
+*Auteur : Mounir Meknaci*.  
+*Version : 1.0*

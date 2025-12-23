@@ -1,23 +1,22 @@
 # Home Credit - API de Scoring Crédit (MLOps)
 
-> Déploiement d'un modèle de scoring crédit en production avec approche MLOps complète
+> Déploiement d'un modèle de scoring crédit en production avec approche MLOps.
 
 [![Python](https://img.shields.io/badge/Python-3.11-blue.svg)](https://www.python.org/)
-[![FastAPI](https://img.shields.io/badge/FastAPI-✅-009688.svg)](https://fastapi.tiangolo.com/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.122.0-009688.svg)](https://fastapi.tiangolo.com/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-336791.svg)](https://www.postgresql.org/)
-[![Streamlit](https://img.shields.io/badge/Streamlit-✅-FF4B4B.svg)](https://streamlit.io/)
-[![Docker](https://img.shields.io/badge/Docker-Ready-2496ED.svg)](https://www.docker.com/)
-[![MLflow](https://img.shields.io/badge/MLflow-Tracking-orange.svg)](https://mlflow.org/)
-[![LightGBM](https://img.shields.io/badge/Model-LightGBM-green.svg)](https://lightgbm.readthedocs.io/)
-
+[![Streamlit](https://img.shields.io/badge/Streamlit-1.52.1-FF4B4B.svg)](https://streamlit.io/)
+[![Docker](https://img.shields.io/badge/Docker-python:3.11--slim-2496ED.svg)](https://hub.docker.com/_/python)
+[![MLflow](https://img.shields.io/badge/MLflow-3.6.0-orange.svg)](https://mlflow.org/)
+[![LightGBM](https://img.shields.io/badge/LightGBM-4.6.0-green.svg)](https://lightgbm.readthedocs.io/)
 ---
 
-## 📋 Table des matières
+## Table des matières
 
 1. [Contexte du projet](#contexte-du-projet)
 2. [Architecture](#architecture)
-3. [Progression](#progression)
-4. [Performance](#performance)
+3. [Optimisations](#optimisations)
+4. [Structure du projet](#structure-du-projet)
 5. [Installation](#installation)
 6. [Utilisation](#utilisation)
 7. [API](#api)
@@ -28,7 +27,7 @@
 
 ---
 
-## 🎯 Contexte du projet
+## Contexte du projet
 
 **"Prêt à dépenser"** est une société financière proposant des crédits à la consommation pour des personnes ayant peu ou pas d'historique de prêt.
 
@@ -42,218 +41,190 @@ Développer un **outil de scoring crédit** pour :
 
 ### Contrainte métier
 
-Le coût d'un **Faux Négatif** (mauvais client accepté) est **10x** supérieur au coût d'un **Faux Positif** (bon client refusé).
-
-→ Nécessité d'optimiser le seuil de décision pour minimiser le coût métier total.
+Le coût d'un **Faux Négatif** (mauvais client accepté) est **10x** supérieur au coût d'un **Faux Positif** (Optimisation du seuil de décision pour minimiser le coût métier total).
 
 ---
 
-## 🏗️ Architecture
+## Architecture
 
 ```
-┌─────────────────┐      ┌──────────────────┐      ┌─────────────────┐
-│   Client HTTP   │─────>│   FastAPI API    │─────>│   PostgreSQL    │
-│                 │<─────│  (Port 8000)     │<─────│  (Prédictions)  │
-└─────────────────┘      └──────────────────┘      └─────────────────┘
-                                  │                         │
+                         ┌──────────────────┐     
+                         │ Structlog (JSON) │
+                         │(Logs temps réel) │
+                         └──────────────────┘
+                                  ^
+                                  │
+                                  │ 
+┌─────────────────┐      ┌──────────────────┐      ┌─────────────────┐      ┌───────────────────────────────┐
+│   Client HTTP   │─────>│   FastAPI API    │─────>│   PostgreSQL    │─────>│         Evidently AI          │
+│                 │<─────│   (Port 8000)    │<─────│   (Stockage)    │<─────│   Rapports Drift (HTML/JSON)  │
+└─────────────────┘      └──────────────────┘      └─────────────────┘      └───────────────────────────────┘
+                                  │                         │               
                                   │                         │
                                   v                         v
                          ┌──────────────────┐      ┌─────────────────┐
-                         │  LightGBM Model  │      │  Streamlit      │
-                         │  (Scoring)       │      │  Dashboard      │
-                         └──────────────────┘      │  (Port 8501)    │
+                         │  LightGBM Model  │      │    Streamlit    │
+                         │    (Scoring)     │      │    Dashboard    │
+                         └──────────────────┘      │   (Port 8501)   │
                                                    └─────────────────┘
+
 ```
 
 ### Composants
 
 1. **API FastAPI** : 5 endpoints REST (predict, batch, health, model-info, docs)
-2. **Modèle LightGBM** : Scoring crédit optimisé (AUC = 0.76, seuil = 0.5225)
-3. **PostgreSQL** : Stockage prédictions + features + drift reports
+2. **Modèle LightGBM** : Scoring crédit optimisé (AUC = 0.7828, seuil = 0.5225)
+3. **PostgreSQL** : Stockage prédictions + features + drift reports (4 tables)
 4. **Streamlit** : Dashboard monitoring temps réel (5 pages)
-5. **GitHub Actions** : Pipeline CI/CD automatisé
-6. **Docker** : Conteneurisation complète
-
+5. **Structlog** : Logging structuré JSON (temps réel)
+6. **Evidently AI** : Détection data drift automatique
+7. **GitHub Actions** : Pipeline CI/CD automatisé (4 jobs : test, build, push, deploy)
+8. **Docker** : Conteneurisation (python:3.11-slim)
+9. **Tests** : 155 tests automatisés (89% de couverture)
 ---
 
-## 📊 Progression
+ ## Optimisations
 
-### ✅ Partie 1 - Développement du modèle (Terminée)
+  **Objectif** : Réduire la latence de l'API
 
-- ✅ Exploration et nettoyage des données (307k clients, 646 features)
-- ✅ Feature engineering et agrégation des tables
-- ✅ Entraînement et comparaison de modèles avec MLflow
-- ✅ Sélection du meilleur modèle : **LightGBM** (AUC = 0.76)
-- ✅ Optimisation des hyperparamètres et du seuil métier
+  **Méthodologie** :
+  1. Profiling avec `cProfile` (sur 2,000 prédictions)
+  2. Identification de 3 goulots d'étranglement (preprocessing 91.2% du temps)
+  3. Implémentation de 3 optimisations ciblées
+  4. Benchmarking quantitatif avec graphiques
 
-### 🚀 Partie 2 - Mise en production (100% complétée ✅)
+  ### Comparaison Baseline vs Optimized
 
-#### Étape 1 : Contrôle de Version ✅
-- Repository GitHub public
-- Structure projet claire
-- Historique commits explicites
+  | Métrique | Baseline (Production) | Optimized | Amélioration |
+  |----------|----------------------|-----------|--------------|
+  | **Mean** | 30.67 ms | 17.55 ms | **-42.78%** |
+  | **Median (P50)** | 30.49 ms | 17.27 ms | **-43.35%** |
+  | **P95** | 32.45 ms | 17.83 ms | **-45.06%** |
+  | **P99** | 35.11 ms | 18.33 ms | **-47.79%** |
+  | **Throughput** | 32.61 pred/sec | 56.98 pred/sec | **+74.73%** |
 
-#### Étape 2 : API + CI/CD ✅
-- API FastAPI fonctionnelle (5 endpoints)
-- Dockerfile + docker-compose.yml
-- Tests unitaires (pytest) - **Couverture : 83.46%**
-- Pipeline GitHub Actions (test, build, push, deploy)
-- Déploiement Hugging Face Spaces : [API Live](https://eqqinox-credit-scoring-api.hf.space)
+  **Source** :
+  - Baseline : 1,166 prédictions production (PostgreSQL 09/12 → 16/12/2025)
+  - Optimized : 2,000 prédictions benchmarking (16/12/2025)
 
-#### Étape 3 : Stockage & Monitoring ✅ (Complétée)
-- **Phase 1 ✅** : Base PostgreSQL (4 tables créées)
-- **Phase 2 ✅** : Logging structuré JSON (structlog)
-- **Phase 3 ✅** : Intégration PostgreSQL (PredictionStorage)
-- **Phase 4 ✅** : Simulation de trafic (114 prédictions)
-- **Phase 5 ✅** : Dashboard Streamlit (5 pages, 8 visualisations)
-- **Phase 6 ✅** : Détection Data Drift (Evidently AI) - Opérationnelle
-- **Phase 7 ⏳** : Documentation (MONITORING.md créé) - En cours
+  ### Optimisations Implémentées
 
-#### Étape 4 : Optimisation Performances ✅ (Complétée)
-- **Phase 1 ✅** : Profiling baseline (cProfile + métriques PostgreSQL)
-- **Phase 2 ✅** : Optimisations preprocessing (A1, A2, A3)
-- **Phase 3 ✅** : Benchmarking (2,000 prédictions mesurées)
-- **Phase 4 ✅** : Documentation (OPTIMIZATION_REPORT.md)
+  | ID | Optimisation | Description |
+  |----|--------------|-------------|
+  | **A1** | Label Encoding Vectorisé | Pré-calcul mappings + `df.replace()` pandas au lieu de `LabelEncoder.transform()` sklearn |
+  | **A2** | One-Hot Encoding Groupé | UN SEUL `pd.concat()` au lieu de 32 (réduction O(n²) → O(n)) |
+  | **A3** | Caching Colonnes Finales | Pré-calcul ordre colonnes finales (élimination regex sur 911 cols) |
 
-**Résultats** : 🚀
-- Réduction latence : **-42.78%** (30.67 ms → 17.55 ms)
-- Amélioration throughput : **+74.73%** (32.61 → 56.98 pred/sec)
-- Objectif -40% minimum : **ATTEINT**
+  **Gain cumulé mesuré** : **-42.78%**
 
+  ### Impact Business
+
+  - **UX améliorée** : Réponse quasi-instantanée (< 20 ms pour 99% des clients)
+  - **Scalabilité** : +75% de capacité sans upgrade matériel (4.9M pred/jour vs 2.8M)
+  - **Coûts réduits** : -43% temps CPU par prédiction
+
+  ### Documentation
+
+  Rapport complet d'optimisation : [`docs/OPTIMIZATION_REPORT.md`](docs/OPTIMIZATION_REPORT.md)
+
+  **Graphiques (non versionnés)** :
+  - `reports/benchmarks/performance_comparison.png` (bar chart)
+  - `reports/benchmarks/performance_boxplot.png` (distributions)
 ---
 
-## 🚀 Performance
-
-### Résultats des Optimisations (Étape 4)
-
-**Objectif** : Réduire la latence de -40% minimum (requis OpenClassrooms)
-
-**Méthodologie** :
-1. Profiling avec `cProfile` (2,000 prédictions)
-2. Identification de 3 goulots d'étranglement (preprocessing 91.2% du temps)
-3. Implémentation de 3 optimisations ciblées
-4. Benchmarking quantitatif avec graphiques
-
-#### Comparaison Baseline vs Optimized
-
-| Métrique | Baseline (Production) | Optimized | Amélioration | Statut |
-|----------|----------------------|-----------|--------------|--------|
-| **Mean** | 30.67 ms | 17.55 ms | **-42.78%** | ✅ |
-| **Median (P50)** | 30.49 ms | 17.27 ms | **-43.35%** | ✅ |
-| **P95** | 32.45 ms | 17.83 ms | **-45.06%** | ✅ |
-| **P99** | 35.11 ms | 18.33 ms | **-47.79%** | ✅ |
-| **Throughput** | 32.61 pred/sec | 56.98 pred/sec | **+74.73%** | 🚀 |
-
-**Source** :
-- Baseline : 1,166 prédictions production (PostgreSQL 09/12 → 16/12/2025)
-- Optimized : 2,000 prédictions benchmarking (16/12/2025)
-
-#### Optimisations Implémentées
-
-| ID | Optimisation | Description | Gain |
-|----|--------------|-------------|------|
-| **A1** | Label Encoding Vectorisé | Pré-calcul mappings + `df.replace()` pandas au lieu de `LabelEncoder.transform()` sklearn | -30% |
-| **A2** | One-Hot Encoding Groupé | UN SEUL `pd.concat()` au lieu de 32 (réduction O(n²) → O(n)) | -20% |
-| **A3** | Caching Colonnes Finales | Pré-calcul ordre colonnes finales (élimination regex sur 911 cols) | -10% |
-
-**Gain cumulé mesuré** : **-42.78%** (légèrement supérieur à l'estimation -60% grâce aux synergies)
-
-#### Impact Business
-
-- **UX améliorée** : Réponse quasi-instantanée (< 20 ms pour 99% des clients)
-- **Scalabilité** : +75% de capacité sans upgrade matériel (4.9M pred/jour vs 2.8M)
-- **Coûts réduits** : -43% temps CPU par prédiction
-
-#### Documentation
-
-Rapport complet d'optimisation : [`docs/OPTIMIZATION_REPORT.md`](docs/OPTIMIZATION_REPORT.md) (700 lignes)
-
-**Contenu** :
-- Analyse baseline (profiling cProfile)
-- Optimisations détaillées (code AVANT/APRÈS)
-- Résultats benchmarks (graphiques + JSON)
-- Impact production et décisions techniques
-- Recommandations futures
-
-**Graphiques générés** :
-- `reports/benchmarks/performance_comparison.png` (bar chart)
-- `reports/benchmarks/performance_boxplot.png` (distributions)
-
----
-
-## 📁 Structure du projet
+## Structure du projet
 
 ```
 home-credit-scoring-api/
-├── .github/workflows/
-│   └── ci-cd.yml                    # Pipeline GitHub Actions
-├── src/
-│   ├── api/
-│   │   ├── main.py                  # FastAPI application
-│   │   ├── schemas.py               # Pydantic models
-│   │   ├── predictor.py             # Logique ML
-│   │   ├── config.py                # Configuration
-│   │   └── preprocessing.py         # Utilitaires
-│   ├── monitoring/
-│   │   ├── logger.py                # Logging structuré (structlog)
-│   │   ├── storage.py               # PostgreSQL ORM (SQLAlchemy)
-│   │   ├── drift_detector.py        # Détection drift (Evidently AI)
-│   │   ├── dashboard.py             # Page d'accueil Streamlit
-│   │   └── pages/
-│   │       ├── overview.py          # KPIs + filtres temporels
-│   │       ├── performance.py       # Latences + erreurs
-│   │       ├── business.py          # Profils clients + montants
-│   │       └── drift.py             # Data drift (rapports HTML)
-│   └── scripts/
-│       ├── init_database.py         # Init PostgreSQL
-│       ├── simulate_traffic.py      # Simulation trafic
-│       └── generate_drift_report.py # Génération rapports drift
-├── tests/
-│   ├── test_api_endpoints.py
-│   ├── test_predictor.py
-│   ├── test_validation.py
-│   └── monitoring/
-│       ├── test_logger.py
-│       └── test_storage.py
-├── models/                          # Artefacts ML
-│   ├── model.pkl                    # LightGBM
-│   ├── feature_names.pkl
-│   ├── label_encoders.pkl
-│   ├── onehot_encoder.pkl
-│   ├── metrics.json
-│   └── threshold.json
-├── data/
-│   └── reference/
-│       └── train_reference.parquet  # Dataset référence (272 MiB)
-├── notebooks/
-│   └── 01_Modelisation_MLflow.ipynb
-├── reports/
-│   └── drift/                       # Rapports Evidently AI (HTML/JSON)
-├── example_single_request.json      # Exemple API (1 client)
-├── example_batch_request.json       # Exemple API (3 clients)
-├── API_USAGE.md                     # Guide utilisation API
-├── MONITORING.md                    # Guide monitoring complet
-├── Dockerfile
-├── Dockerfile.huggingface
-├── docker-compose.yml
-├── pyproject.toml
-├── requirements.txt
-└── README.md
+  ├── .github/
+  │   └── workflows/
+  │       └── ci-cd.yml                     # Pipeline CI/CD
+  ├── data/                                 
+  │   └── README.md                          # Documentation dataset (non versionné)    
+  ├── docs/
+  │   ├── OPTIMIZATION_REPORT.md            # Rapport optimisations
+  │   └── RGPD_COMPLIANCE.md                # Conformité RGPD
+  ├── models/                              
+  │   ├── model.pkl                         # LightGBM optimisé
+  │   ├── feature_names.pkl                 # Noms features (911)
+  │   ├── label_encoders.pkl                # Encodeurs catégoriels
+  │   ├── onehot_encoder.pkl                # Encodeur one-hot
+  │   ├── metrics.json                      # Métriques modèle (AUC, etc.)
+  │   └── threshold.json                    # Seuil optimal (0.5225)
+  ├── notebooks/
+  │   ├── 01_Modelisation_MLflow.ipynb      # Expérimentations MLflow (Projet partie 1)
+  │   ├── 02_model_production.ipynb         # Préparation modèle production
+  │   ├── 03_test_model_loading.ipynb       # Tests chargement modèle
+  │   └── 04_drift_analysis.ipynb           # Analyse data drift (Evidently)
+  ├── src/
+  │   ├── api/
+  │   │   ├── __init__.py
+  │   │   ├── config.py                     # Configuration (Pydantic Settings)
+  │   │   ├── main.py                       # FastAPI application (5 endpoints)
+  │   │   ├── predictor.py                  # Logique ML + optimisations
+  │   │   ├── preprocessing.py              # Utilitaires (legacy)
+  │   │   └── schemas.py                    # Pydantic models (validation)
+  │   ├── monitoring/
+  │   │   ├── __init__.py
+  │   │   ├── dashboard.py                  # Page d'accueil Streamlit
+  │   │   ├── drift_detector.py             # Détection drift (Evidently) 
+  │   │   ├── logger.py                     # Logging structuré (structlog)
+  │   │   ├── storage.py                    # PostgreSQL ORM (SQLAlchemy)
+  │   │   └── pages/
+  │   │       ├── business.py               # Profils clients + montants
+  │   │       ├── drift.py                  # Rapports drift (HTML)
+  │   │       ├── overview.py               # KPIs + filtres temporels
+  │   │       └── performance.py            # Latences + erreurs
+  │   └── scripts/
+  │       ├── __init__.py
+  │       ├── benchmark.py                  # Benchmarking performances
+  │       ├── calculate_baseline_metrics.py # Extraction métriques production
+  │       ├── generate_drift_report.py      # Génération rapports drift
+  │       ├── init_database.py              # Initialisation PostgreSQL
+  │       ├── profile_api.py                # Profiling cProfile 
+  │       └── simulate_traffic.py           # Simulation trafic API
+  ├── tests/
+  │   ├── __init__.py
+  │   ├── conftest.py                       # Fixtures pytest
+  │   ├── test_additional_coverage.py       # Tests edge cases + gestion erreurs
+  │   ├── test_api_endpoints.py             # Tests endpoints FastAPI
+  │   ├── test_predictor.py                 # Tests modèle ML
+  │   ├── test_validation.py                # Tests validation données
+  │   └── monitoring/
+  │       ├── __init__.py
+  │       ├── test_drift_detector.py        # Tests détection drift
+  │       ├── test_logger.py                # Tests logging structuré
+  │       └── test_storage.py               # Tests PostgreSQL ORM
+  ├── .coveragerc                           # Config coverage local
+  ├── .coveragerc-ci                        # Config coverage CI/CD
+  ├── .dockerignore                         # Exclusions Docker
+  ├── .gitignore                            # Exclusions Git
+  ├── .python-version                       # Version Python (3.11)
+  ├── API_USAGE.md                          # Guide utilisation API
+  ├── Dockerfile                            # Image Docker production
+  ├── Dockerfile.huggingface                # Image Docker Hugging Face
+  ├── MONITORING.md                         # Guide monitoring
+  ├── README.md                             # Documentation principale
+  ├── docker-compose.yml                    # Orchestration locale
+  ├── example_batch_request.json            # Exemple API (3 clients)
+  ├── example_single_request.json           # Exemple API (1 client)
+  ├── pyproject.toml                        # Dépendances + config outils
+  ├── requirements.txt                      # Dépendances production (compilées)
+  └── uv.lock                               # Lockfile uv
 ```
-
 ---
 
-## 🚀 Installation
+## Installation
 
 ### Prérequis
 
 - **Python 3.11+**
 - **PostgreSQL 16** (pour stockage production)
-- **UV package manager** (recommandé) ou pip
+- **UV package manager** ou pip
 - **Git**
-- **Docker** (optionnel)
+- **Docker**
 
-### Installation avec UV (recommandé)
+### Installation avec UV
 
 ```bash
 # Cloner le repository
@@ -288,12 +259,12 @@ python src/scripts/init_database.py
 
 ---
 
-## 🎮 Utilisation
+## Utilisation
 
 ### 1. Lancer l'API FastAPI
 
 ```bash
-# Mode local (avec logging coloré)
+# Mode local
 ENVIRONMENT=local LOG_LEVEL=INFO uvicorn src.api.main:app --reload --port 8000
 
 # Mode production (JSON structuré)
@@ -328,7 +299,7 @@ python src/scripts/simulate_traffic.py --num-predictions 100 --delay 0.5 --drift
 
 ---
 
-## 🌐 API
+## API
 
 ### Endpoints disponibles
 
@@ -368,17 +339,31 @@ curl -X POST "http://localhost:8000/predict" \
 
 ---
 
-## 📊 Dashboard Monitoring
+## Dashboard Monitoring
 
-Le dashboard Streamlit offre **5 pages** de monitoring en temps réel :
+Le dashboard Streamlit offre **5 pages** de monitoring :
 
-### 🏠 Page d'Accueil
-- Statut API FastAPI (✅/❌)
-- Statut PostgreSQL (✅/❌)
+### Page - dashboard
+- Statut API FastAPI
+- Statut PostgreSQL
 - Métriques globales
 - Guide d'utilisation
 
-### 📈 Page Overview
+### Page - business
+- Pie chart : Profils clients (Approve/Refuse)
+- Histogram : Distribution des montants de crédit
+
+### Page - drift
+- **4 KPIs** : Drift détecté (OUI/NON), score de drift, features affectées, seuil alerte
+- **Rapport HTML interactif** : Visualisations Evidently AI (distributions, tests statistiques)
+- **Historique** : Line chart évolution des scores de drift dans le temps
+- **Génération** : Commande `python src/scripts/generate_drift_report.py --days 7`
+
+**Seuil d'alerte** : 30% des features avec drift → Réentraînement recommandé
+
+**Note** : Le seuil 0.5 affiché dans les rapports HTML correspond au p-value des tests statistiques d'Evidently AI (non configurable). Le seuil d'alerte de 30% s'applique au niveau global.
+
+### Page - overview
 - **4 KPIs** : Total prédictions, taux approbation, latence moyenne, taux erreur
 - **Filtres temporels** : 24h, 7j, 30j, Tout
 - **5 visualisations** :
@@ -387,28 +372,15 @@ Le dashboard Streamlit offre **5 pages** de monitoring en temps réel :
   - Histogram : Distribution des probabilités (avec seuil 0.5225)
   - Bar chart : Niveaux de confiance (LOW/MEDIUM/HIGH)
 
-### ⚡ Page Performance
+### Page - performance
 - Boxplot : Distribution des latences par endpoint
 - Top 10 : Requêtes les plus lentes
 - Tableau : Erreurs HTTP (code != 200)
 
-### 💼 Page Business
-- Pie chart : Profils clients (Approve/Refuse)
-- Histogram : Distribution des montants de crédit
-
-### 🔍 Page Data Drift (Evidently AI)
-- **4 KPIs** : Drift détecté (OUI/NON), score de drift, features affectées, seuil alerte
-- **Rapport HTML interactif** : Visualisations Evidently AI (distributions, tests statistiques)
-- **Historique** : Line chart évolution des scores de drift dans le temps
-- **Génération** : Commande `python src/scripts/generate_drift_report.py --days 7`
-
-**Seuil d'alerte** : 30% des features avec drift → Réentraînement recommandé
-
-**Auto-refresh** : 30 secondes
 
 ---
 
-## 🧪 Tests
+## Tests
 
 ### Lancer tous les tests
 
@@ -416,7 +388,7 @@ Le dashboard Streamlit offre **5 pages** de monitoring en temps réel :
 pytest tests/ -v --cov=src
 ```
 
-**Couverture actuelle : 83.46%**
+**Couverture actuelle : 89%**
 
 ### Tests par module
 
@@ -449,7 +421,7 @@ storage.close()
 
 ---
 
-## 🐳 Docker
+## Docker
 
 ### Build et run local
 
@@ -476,16 +448,16 @@ docker-compose down
 
 ---
 
-## 🔧 Technologies
+## Technologies
 
 ### Data Science & ML
 - **Pandas**, **NumPy** : Manipulation de données
 - **Scikit-learn** : Preprocessing, métriques
 - **LightGBM** : Modèle de scoring
-- **MLflow** : Tracking expérimentations
+- **MLflow** : Tracking expérimentations (partie 1 du projet)
 
 ### Backend & API
-- **FastAPI** : API REST haute performance
+- **FastAPI** : API REST
 - **Pydantic** : Validation des données
 - **Uvicorn** : Serveur ASGI
 
@@ -498,7 +470,7 @@ docker-compose down
 - **Streamlit** : Dashboard interactif
 - **Plotly** : Visualisations interactives
 - **structlog** : Logging structuré JSON
-- **Evidently AI** : Détection data drift (Phase 6)
+- **Evidently AI** : Détection data drift
 
 ### Testing & CI/CD
 - **Pytest** : Tests unitaires + intégration
@@ -509,27 +481,41 @@ docker-compose down
 ### DevOps
 - **Docker** : Conteneurisation
 - **docker-compose** : Orchestration
-- **UV** : Package manager Python moderne
+- **UV** : Package manager
 - **Hugging Face Spaces** : Déploiement cloud
 
 ---
 
-## 📈 Résultats du modèle
+## Résultats du modèle
 
 ### Modèle sélectionné : LightGBM
 
-| Métrique | Valeur |
-|----------|--------|
-| **AUC ROC** | 0.76 |
-| **Seuil optimal** | 0.5225 |
-| **Business Score** | 0.73 |
-| **Temps d'entraînement** | 90s |
+  | Métrique                      | Valeur  |
+  |-------------------------------|---------|
+  | **AUC ROC**                   | 0.7828  |
+  | **Seuil optimal**             | 0.5225  |
+  | **Recall (seuil optimal)**    | 0.6389  |
+  | **Precision (seuil optimal)** | 0.2023  |
+  | **Temps d'entraînement**      | 18.3s   |
+  | **Features**                  | 911     |
+  | **Échantillons train**        | 246,008 |
+  | **Échantillons validation**   | 61,503  |
 
-**Contrainte métier** : Coût FN = 10x Coût FP
+  **Contrainte métier** : Coût FN = 10x Coût FP
+
+### Coût métier (optimisation)
+
+  | Métrique         | Seuil par défaut (0.5) | Seuil optimal (0.5225) | Amélioration |
+  |------------------|------------------------|------------------------|--------------|
+  | **Coût total**   | 30,490                 | 30,437                 | **-53**      |
+  | **Coût FN**      | 16,740                 | 17,930                 | +1,190       |
+  | **Coût FP**      | 13,750                 | 12,507                 | **-1,243**   |
+  | **Faux Négatifs**| 1,674                  | 1,793                  | +119         |
+  | **Faux Positifs**| 13,750                 | 12,507                 | **-1,243**   |
 
 ---
 
-## 📝 Commandes utiles
+## Commandes utiles
 
 ### PostgreSQL
 
@@ -565,17 +551,16 @@ open htmlcov/index.html
 
 ---
 
-## 📚 Documentation
+## Documentation
 
-- **API** : `API_USAGE.md` - Guide complet d'utilisation
+- **API** : `API_USAGE.md` - Guide d'utilisation
 - **Monitoring** : `MONITORING.md` - Guide système de monitoring et détection drift
 - **Swagger UI** : http://localhost:8000/docs
 - **Redoc** : http://localhost:8000/redoc
-- **CLAUDE.md** : Contexte technique complet (non versionné)
 
 ---
 
-## 🔗 Liens
+## Liens
 
 - **Repository** : https://github.com/Eqqinox/home-credit-scoring-api
 - **API Live** : https://eqqinox-credit-scoring-api.hf.space
@@ -584,21 +569,24 @@ open htmlcov/index.html
 
 ---
 
-## 📄 Licence
+## Licence
 
 MIT License
 
 ---
 
-## 👨‍💻 Auteur
+## Auteur
 
 **Mounir Meknaci**
 
-- 📧 Email : meknaci81@gmail.com
-- 💼 LinkedIn : [Mounir Meknaci](https://www.linkedin.com/in/mounir-meknaci/)
-- 🎓 Formation : Data Scientist / ML Engineer
-- 📂 Projet : Home Credit Default Risk - Approche MLOps
+- Email : meknaci81@gmail.com
+- LinkedIn : [Mounir Meknaci](https://www.linkedin.com/in/mounir-meknaci/)
+- Formation : Expert en ingénierie et science des données
+- Projet : Home Credit Default Risk - Approche MLOps
 
 ---
 
-*Dernière mise à jour : 15 décembre 2025*
+*Dernière mise à jour: Décembre 2025*  
+*Projet Home Credit Scoring API - OpenClassrooms*.  
+*Auteur : Mounir Meknaci*.  
+*Version : 1.0*

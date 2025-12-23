@@ -1,10 +1,9 @@
 # Rapport d'Optimisation des Performances
 
 **Projet** : Home Credit Scoring API
-**Date** : 16 décembre 2025
 **Auteur** : Mounir Meknaci
 **Contexte** : OpenClassrooms - Parcours Data Scientist
-**Objectif** : Réduction latence -40% minimum (Étape 4 - Phase 4)
+**Objectif** : Réduction de la latence
 
 ---
 
@@ -36,21 +35,21 @@ L'API de scoring crédit "Prêt à Dépenser" est une application FastAPI déplo
 
 ### 1.2 Problématique Identifiée
 
-Les données de production (1,166 prédictions du 09/12 au 16/12/2025) ont révélé une **latence moyenne de 30.67 ms**, jugée trop élevée pour une API temps réel.
+Les données de production (1,166 prédictions) ont révélé une **latence moyenne de 30.67 ms**, jugée trop élevée pour une API temps réel.
 
-**Objectifs de l'Étape 4** (requis OpenClassrooms) :
+**Objectifs** :
 - Profiler l'application pour identifier les goulots d'étranglement
 - Optimiser le code pour améliorer les temps de réponse
-- Réduire la latence d'**au moins -40%**
+- Réduire la latence
 - Documenter rigoureusement l'impact des optimisations
 
 ### 1.3 Méthodologie Adoptée
 
-**Approche en 4 phases** :
-1. **Phase 1 - Profiling Baseline** : Mesurer précisément où le temps est perdu
-2. **Phase 2 - Optimisation Preprocessing** : Implémenter optimisations ciblées
-3. **Phase 3 - Benchmarking** : Prouver quantitativement les gains
-4. **Phase 4 - Documentation** : Formaliser les résultats (ce document)
+**Approche** :
+1. **Profiling Baseline** : Mesurer précisément où le temps est perdu
+2. **Optimisation Preprocessing** : Implémenter optimisations ciblées
+3. **Benchmarking** : Prouver quantitativement les gains
+4. **Documentation** : Formaliser les résultats (ce document)
 
 **Outils utilisés** :
 - `cProfile` : Profiling détaillé des fonctions Python
@@ -64,12 +63,12 @@ Les données de production (1,166 prédictions du 09/12 au 16/12/2025) ont rév�
 
 ### 2.1 Métriques Production (PostgreSQL)
 
-**Source** : 1,166 prédictions réelles collectées en production (09/12 → 16/12/2025)
+**Source** : 1,166 prédictions réelles collectées en production
 
 | Métrique | Valeur | % du Total |
 |----------|--------|------------|
 | **Temps Total Mean** | 30.67 ms | 100% |
-| **Preprocessing Mean** | 27.96 ms | **91.2%** 🔴 |
+| **Preprocessing Mean** | 27.96 ms | **91.2%** |
 | **Inference Mean** | 2.71 ms | 8.8% |
 | **Temps Total Median (P50)** | 30.49 ms | - |
 | **Temps Total P95** | 32.45 ms | - |
@@ -203,9 +202,9 @@ for col, mapping in self.label_mappings.items():
 ```
 
 **Avantages** :
-- ✅ `df.replace()` est vectorisé (optimisé C/Cython)
-- ✅ Pré-calcul une seule fois (pas à chaque prédiction)
-- ✅ Réduction de 37 appels sklearn → 37 opérations pandas natives
+- `df.replace()` est vectorisé (optimisé C/Cython)
+- Pré-calcul une seule fois (pas à chaque prédiction)
+- Réduction de 37 appels sklearn → 37 opérations pandas natives
 
 **Gain estimé** : -30%
 
@@ -257,9 +256,9 @@ df_encoded = pd.concat([df_encoded] + encoded_dfs, axis=1)
 ```
 
 **Avantages** :
-- ✅ Réduction de 32 `pd.concat()` → 1 seul appel (-97% opérations)
-- ✅ Complexité O(n) au lieu de O(n²)
-- ✅ Pré-calcul des noms de colonnes (pas de concaténation de strings répétée)
+- Réduction de 32 `pd.concat()` → 1 seul appel (-97% opérations)
+- Complexité O(n) au lieu de O(n²)
+- Pré-calcul des noms de colonnes (pas de concaténation de strings répétée)
 
 **Gain estimé** : -20%
 
@@ -294,9 +293,9 @@ df_encoded = df_encoded[self.final_column_order]
 ```
 
 **Avantages** :
-- ✅ Élimination regex sur 911 colonnes (-100% du coût regex)
-- ✅ Indexation directe avec ordre pré-calculé
-- ✅ Gestion colonnes manquantes avec valeur par défaut
+- Élimination regex sur 911 colonnes (-100% du coût regex)
+- Indexation directe avec ordre pré-calculé
+- Gestion colonnes manquantes avec valeur par défaut
 
 **Gain estimé** : -10%
 
@@ -352,7 +351,7 @@ df_encoded = df_encoded[self.final_column_order]
 - 10 prédictions identiques du même client
 - Probabilité moyenne : 0.838908
 - Variance : 0.0000000000 (nulle)
-- ✅ **Accuracy inchangée** : 0.00% de différence
+- **Accuracy inchangée** : 0.00% de différence
 
 **Warnings corrigés** :
 - `FutureWarning` pandas : Ajout `.infer_objects(copy=False)` (ligne 192)
@@ -385,11 +384,11 @@ df_encoded = df_encoded[self.final_column_order]
 | **P99** | 35.11 ms | 18.33 ms | **-47.79%** | ✅ |
 | **Min** | 27.97 ms | 16.70 ms | **-40.29%** | ✅ |
 | **Max** | 80.00 ms | 398.09 ms* | -397.61% | ⚠️ |
-| **Throughput** | 32.61 pred/sec | 56.98 pred/sec | **+74.73%** | 🚀 |
+| **Throughput** | 32.61 pred/sec | 56.98 pred/sec | **+74.73%** | ✅ |
 
 *Note : Le max (398 ms) est un outlier dû au cold start (premier chargement), négligeable sur 2,000 prédictions.*
 
-**Objectif -40% minimum** : ✅ **ATTEINT ET DÉPASSÉ** (+2.78%)
+**Réduction de 42.78% en moyenne.**
 
 ---
 
@@ -572,39 +571,16 @@ df_encoded = df_encoded[self.final_column_order]
 
 ## 6. Décisions Techniques
 
-### 6.1 Pourquoi PAS ONNX Runtime ?
-
-**Question posée** : ONNX Runtime est souvent recommandé pour optimiser l'inférence. Pourquoi ne pas l'utiliser ?
-
-**Analyse** :
-
-| Aspect | ONNX Runtime | Décision |
-|--------|--------------|----------|
-| **Gain potentiel** | -2% à -3% | ❌ Marginal |
-| **Temps requis** | 5-7 heures | ❌ Mauvais ROI |
-| **Complexité** | Élevée (conversion, tests) | ❌ Risque |
-| **Impact réel** | Inference 8.8% du temps | ❌ Pas le goulot |
-
-**Calcul ROI** :
-- Gain ONNX : 2.71 ms × 3% = 0.08 ms
-- Gain preprocessing (A1+A2+A3) : 27.96 ms × 46% = 12.86 ms
-- **ROI preprocessing** : 160x supérieur
-
-**Justification pour soutenance** :
-> "J'ai analysé ONNX Runtime mais le gain (-2%) ne justifiait pas la complexité (5-7h). J'ai préféré me concentrer sur le vrai goulot (preprocessing 91.2%) avec un ROI supérieur (-43%). L'inférence LightGBM est déjà très rapide (2.71 ms)."
-
----
-
-### 6.2 Pourquoi df.replace() au lieu de LabelEncoder.transform() ?
+### 6.1 Pourquoi df.replace() au lieu de LabelEncoder.transform() ?
 
 **Comparaison** :
 
 | Aspect | LabelEncoder.transform() | df.replace() |
 |--------|-------------------------|--------------|
 | **Type** | Sklearn (Python pur) | Pandas (Cython/C) |
-| **Vectorisation** | ❌ Non (boucle interne) | ✅ Oui (optimisé) |
-| **Validation** | ✅ Gère valeurs inconnues | ⚠️ Nécessite pré-calcul |
-| **Performance** | 🐌 Lent (37 appels) | 🚀 Rapide (dict lookup) |
+| **Vectorisation** | Non (boucle interne) | Oui (optimisé) |
+| **Validation** | Gère valeurs inconnues | Nécessite pré-calcul |
+| **Performance** | Lent (37 appels) | Rapide (dict lookup) |
 
 **Décision** : Utiliser `df.replace()` car :
 1. Pré-calcul des mappings au `__init__()` (une seule fois)
@@ -615,7 +591,7 @@ df_encoded = df_encoded[self.final_column_order]
 
 ---
 
-### 6.3 Pourquoi UN SEUL pd.concat() ?
+### 6.2 Pourquoi UN SEUL pd.concat() ?
 
 **Problème** : `pd.concat()` réalloue un nouveau DataFrame à chaque appel.
 
@@ -638,12 +614,12 @@ df → concat(df, [df1, df2, ..., df32])
 
 ---
 
-### 6.4 Configuration Matérielle
+### 6.3 Configuration Matérielle
 
 **Environnement de développement** :
-- OS : macOS Darwin 25.1.0
-- CPU : Apple Silicon (M-series, non spécifié)
-- RAM : Non mesuré
+- OS : macOS Tahoe 26.1.0
+- CPU : Apple Silicon (M-series, 4)
+- RAM : 24 GB
 - Python : 3.10+
 
 **Environnement de production** (Hugging Face Spaces) :
@@ -681,17 +657,17 @@ df → concat(df, [df1, df2, ..., df32])
 
 ### 7.2 Optimisations Futures (si besoin)
 
-**1. Caching Prédictions Identiques (Gain estimé : -50% pour requêtes répétées)**
+**1. Caching Prédictions Identiques**
 - Utiliser Redis ou cache mémoire
 - Clé : hash des features input
 - TTL : 1 heure (expiration)
 
-**2. Parallelisation Batch (Gain estimé : -30% pour batches > 100)**
+**2. Parallelisation Batch**
 - Utiliser `multiprocessing` ou `asyncio`
 - Traiter plusieurs clients en parallèle
 - Nécessite tests de charge
 
-**3. Quantification du Modèle (Gain estimé : -10%)**
+**3. Quantification du Modèle**
 - Réduire précision float64 → float32
 - Impact négligeable sur accuracy
 - Réduction mémoire et temps inférence
@@ -705,7 +681,6 @@ df → concat(df, [df1, df2, ..., df32])
 **1. Tests de Performance Réguliers**
 - Exécuter `benchmark.py` après chaque modification
 - Comparer avec baseline (alerte si régression > 5%)
-- Documenter changements dans CLAUDE.md
 
 **2. Mise à Jour Dépendances**
 - pandas : Vérifier nouvelles optimisations (chaque version majeure)
@@ -723,101 +698,51 @@ df → concat(df, [df1, df2, ..., df32])
 
 ### 8.1 Résumé des Réalisations
 
-**Objectif initial** : Réduire la latence de -40% minimum (requis OpenClassrooms)
+**Objectif initial** : Réduire la latence
 
-**Résultat final** : **-42.78%** de réduction (objectif dépassé de +2.78%)
+**Résultat final** : **-42.78%** de réduction
 
 **Détail des gains** :
 
 | Phase | Livrable | Résultat |
 |-------|----------|----------|
-| **Phase 1 - Profiling** | 6 fichiers (scripts + rapports) | 3 goulots identifiés |
-| **Phase 2 - Optimisation** | predictor.py (+90 lignes) | 3 optimisations (A1, A2, A3) |
-| **Phase 3 - Benchmarking** | 5 fichiers (JSON + PNG) | -42.78% mean, +74.73% throughput |
-| **Phase 4 - Documentation** | Ce rapport (700 lignes) | Formalisation complète |
+| **Profiling** | 6 fichiers (scripts + rapports) | 3 goulots identifiés |
+| **Optimisation** | predictor.py (+90 lignes) | 3 optimisations (A1, A2, A3) |
+| **Benchmarking** | 5 fichiers (JSON + PNG) | -42.78% mean, +74.73% throughput |
 
 ---
 
 ### 8.2 Validation des Critères
 
-| Critère | Cible | Résultat | Statut |
-|---------|-------|----------|--------|
-| Réduction latence | -40% min | **-42.78%** | ✅ |
-| Profiling réalisé | Oui | cProfile (2,000 pred) | ✅ |
-| Optimisations justifiées | Oui | 3 optimisations documentées | ✅ |
-| Benchmarks quantitatifs | Oui | 2,000 pred + graphiques | ✅ |
-| Accuracy inchangée | 0.00% diff | Variance nulle | ✅ |
-| Tests passent | 89% cov | 155/157 (98.7%) | ✅ |
-| Documentation complète | 500-700 lignes | 700 lignes (ce rapport) | ✅ |
+| Critère | Cible | Résultat |
+|---------|-------|----------|
+| Réduction latence | non définie | **-42.78%** |
+| Profiling réalisé | Oui | cProfile (2,000 pred) |
+| Optimisations justifiées | Oui | 3 optimisations documentées |
+| Benchmarks quantitatifs | Oui | 2,000 pred + graphiques |
+| Accuracy inchangée | 0.00% diff | Variance nulle |
+| Tests passent | 89% cov | 155/157 (98.7%) |
 
-**Résultat global** : ✅ **TOUS LES CRITÈRES VALIDÉS**
-
----
-
-### 8.3 Leçons Apprises
-
-**1. Le profiling est indispensable**
-- Sans cProfile, nous aurions optimisé l'inférence (8.8% du temps) au lieu du preprocessing (91.2%)
-- Toujours mesurer avant d'optimiser ("premature optimization is the root of all evil")
-
-**2. Les optimisations pandas sont puissantes**
-- `df.replace()` vs `LabelEncoder.transform()` : gain 30%
-- UN SEUL `pd.concat()` vs 32 : gain 20%
-- Opérations vectorisées >>> boucles Python
-
-**3. Le ROI guide les décisions**
-- ONNX Runtime (gain 2%, coût 5-7h) : rejeté
-- Preprocessing (gain 43%, coût 6h) : priorisé
-- Focus sur le goulot réel, pas les "best practices" génériques
-
-**4. La validation est critique**
-- Tests accuracy (variance nulle) : confiance dans les optimisations
-- Benchmarks reproductibles (2,000 pred) : résultats fiables
-- Documentation rigoureuse : facilite maintenance future
+**Résultat global** : **TOUS LES CRITÈRES VALIDÉS**
 
 ---
 
-### 8.4 Impact Global
+### 8.3 Impact Global
 
 **Performance** :
-- ✅ Latence réduite de 30.67 ms → 17.55 ms (-42.78%)
-- ✅ Throughput augmenté de 32.61 → 56.98 pred/sec (+74.73%)
-- ✅ Capacité quotidienne : 2.8M → 4.9M prédictions (+75%)
+- Latence réduite de 30.67 ms → 17.55 ms (-42.78%)
+- Throughput augmenté de 32.61 → 56.98 pred/sec (+74.73%)
+- Capacité quotidienne : 2.8M → 4.9M prédictions (+75%)
 
 **Business** :
-- ✅ UX améliorée : réponse quasi-instantanée (< 20 ms P99)
-- ✅ Scalabilité : peut gérer 75% de trafic en plus sans upgrade
-- ✅ Coûts réduits : -43% temps CPU par prédiction
-
-**Technique** :
-- ✅ Code optimisé : +90 lignes, 100% testé, 89% couverture
-- ✅ Documentation complète : 700 lignes (ce rapport)
-- ✅ Baseline établie : permet comparaisons futures
+- UX améliorée : réponse quasi-instantanée (< 20 ms P99)
+- Scalabilité : peut gérer 75% de trafic en plus sans upgrade
+- Coûts réduits : -43% temps CPU par prédiction
 
 ---
 
-### 8.5 Prochaines Étapes
+### 8.4 Technologies déployées et workflow d'optimisation
 
-**Immédiat** (Phase 4 finale) :
-1. ✅ Rapport d'optimisation complété (ce document)
-2. ⏳ Mettre à jour `README.md` (section Performance)
-3. ⏳ Commit + Push GitHub (déploiement CI/CD automatique)
-
-**Court terme** (1 semaine) :
-- Surveiller performances en production (dashboard Streamlit)
-- Vérifier stabilité sur 7 jours
-- Collecter feedback utilisateurs (si applicable)
-
-**Moyen terme** (1 mois) :
-- Re-profiler si régression détectée
-- Évaluer besoin optimisations supplémentaires (caching, parallélisation)
-- Préparer soutenance OpenClassrooms avec résultats
-
----
-
-### 8.6 Remerciements
-
-Ce travail d'optimisation s'inscrit dans le cadre du projet **"Déployez et monitorez votre modèle de scoring"** (Étape 4) du parcours Data Scientist OpenClassrooms.
 
 **Outils utilisés** :
 - Python 3.10+, FastAPI, LightGBM, pandas, numpy, matplotlib
@@ -826,15 +751,13 @@ Ce travail d'optimisation s'inscrit dans le cadre du projet **"Déployez et moni
 - GitHub Actions (CI/CD), Hugging Face Spaces (déploiement)
 
 **Méthodologie** :
-- Approche rigoureuse en 4 phases (Profiling → Optimisation → Benchmarking → Documentation)
+- Approche en 4 phases (Profiling → Optimisation → Benchmarking → Documentation)
 - Validation quantitative à chaque étape (mesures, tests, graphiques)
 - Documentation exhaustive pour reproductibilité et maintenance
 
 ---
 
-**Fin du Rapport d'Optimisation**
-
-*Document créé le 16 décembre 2025*
-*Projet Home Credit Scoring API - OpenClassrooms*
-*Auteur : Mounir Meknaci*
+*Dernière mise à jour: Décembre 2025*  
+*Projet Home Credit Scoring API - OpenClassrooms*.  
+*Auteur : Mounir Meknaci*.  
 *Version : 1.0*
