@@ -195,11 +195,9 @@ home-credit-scoring-api/
   │       ├── test_drift_detector.py        # Tests détection drift
   │       ├── test_logger.py                # Tests logging structuré
   │       └── test_storage.py               # Tests PostgreSQL ORM
-  ├── .coveragerc                           # Config coverage local
   ├── .coveragerc-ci                        # Config coverage CI/CD
   ├── .dockerignore                         # Exclusions Docker
   ├── .gitignore                            # Exclusions Git
-  ├── .python-version                       # Version Python (3.11)
   ├── API_USAGE.md                          # Guide utilisation API
   ├── Dockerfile                            # Image Docker production
   ├── Dockerfile.huggingface                # Image Docker Hugging Face
