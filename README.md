@@ -1,4 +1,4 @@
-# Home Credit - API de Scoring Crédit (MLOps)
+# Home Credit - API de Scoring Crédit (MLOps) 
 
 > Déploiement d'un modèle de scoring crédit en production avec approche MLOps.
 
